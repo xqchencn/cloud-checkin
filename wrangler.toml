@@ -1,0 +1,18 @@
+name = "cloud-checkin"
+main = "worker/src/index.ts"
+compatibility_date = "2026-04-30"
+
+[assets]
+directory = "frontend/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cloud-checkin-db"
+database_id = "50e14527-db27-4884-9d39-38e361088424"
+
+[triggers]
+# Worker 由 Wrangler 管理时，Cron Triggers 只通过这里配置。
+crons = ["1,32 * * * *", "0 17 * * *"]
