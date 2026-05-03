@@ -1,20 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { existsSync, readFileSync } from 'node:fs'
+import { appSource, npmrcSource, stylesSource } from './sources'
 
-const appSource = readFileSync('frontend/src/App.tsx', 'utf8')
-const apiSiteSource = readFileSync('frontend/src/api/apiSite.ts', 'utf8')
-const stylesSource = readFileSync('frontend/src/styles.css', 'utf8')
-const viteConfigSource = readFileSync('frontend/vite.config.ts', 'utf8')
-const mainSource = readFileSync('frontend/src/main.tsx', 'utf8')
-const toastSource = existsSync('frontend/src/toast.tsx') ? readFileSync('frontend/src/toast.tsx', 'utf8') : ''
-const packageSource = readFileSync('package.json', 'utf8')
-const readmeSource = readFileSync('README.md', 'utf8')
-const localScheduledDevSource = readFileSync('scripts/local-scheduled-dev.mjs', 'utf8')
-const checkinLogRepositorySource = readFileSync('worker/src/repositories/checkin-log-repository.ts', 'utf8')
-const taskLogRepositorySource = readFileSync('worker/src/repositories/task-log-repository.ts', 'utf8')
-const schedulerServiceSource = readFileSync('worker/src/services/scheduler-service.ts', 'utf8')
-
-describe('App UI safety and layout contracts', () => {
+describe('App frontend layout and safety contracts', () => {
   it('keeps the desktop site table action column inside the default 1440px layout', () => {
     expect(appSource).toContain('min-w-[980px]')
     expect(appSource).toContain('w-[116px] px-3 py-4 font-medium')
@@ -84,50 +71,8 @@ describe('App UI safety and layout contracts', () => {
   })
 
   it('keeps project npm config platform-neutral', () => {
-    const npmrc = existsSync('.npmrc') ? readFileSync('.npmrc', 'utf8') : ''
-    expect(npmrc).not.toContain('script-shell=')
-    expect(npmrc).not.toContain('C:\\Windows\\System32\\cmd.exe')
-  })
-
-  it('labels scheduled task logs separately from existing manual actions and keeps task logs paginated', () => {
-    expect(appSource).toContain('定时任务日志')
-    expect(appSource).not.toContain('执行定时任务')
-    expect(appSource).not.toContain('RunTasksNow')
-    expect(apiSiteSource).not.toContain('/api/tasks/run-now')
-    expect(appSource).toContain('taskData.logs.map')
-    expect(appSource).toContain('ApiTaskLogs(params)')
-    expect(appSource).toContain('共 {data.total} 条，每页 {pageSize} 条')
-    expect(appSource).not.toContain("useState<{ tab: 'checkin' | 'task'; text: string } | null>(null)")
-    expect(appSource).not.toContain('message?.tab === tab')
-  })
-
-  it('uses global toast notifications instead of page-scoped success banners', () => {
-    expect(toastSource).toContain('export function ToastProvider')
-    expect(toastSource).toContain('export function useToast')
-    expect(toastSource).toContain('window.setTimeout')
-    expect(toastSource).toContain('fixed right-4 top-4')
-    expect(mainSource).toContain('<ToastProvider>')
-    expect(appSource).toContain('const toast = useToast()')
-    expect(appSource).not.toContain('border border-emerald-100 bg-emerald-50')
-  })
-
-  it('renders long and JSON log messages as readable summaries without dumping raw dictionaries by default', () => {
-    expect(appSource).toContain('JsonMessagePreview')
-    expect(appSource).toContain('formatStructuredMessage(raw)')
-    expect(appSource).toContain('summary className="flex min-w-0 cursor-pointer list-none items-center gap-1')
-    expect(appSource).toContain('inline-flex h-4')
-    expect(appSource).toContain('>JSON</span>')
-    expect(appSource).not.toContain('查看原始 JSON')
-    expect(appSource).toContain("if (typeof value === 'object') return '已返回数据'")
-    expect(appSource).toContain('formatCheckinType(log.checkin_type)')
-    expect(appSource).toContain('formatLogStatus(log.status)')
-    expect(appSource).toContain('soft-card min-w-0 p-4')
-    expect(appSource).toContain('truncate')
-    expect(appSource).not.toContain('line-clamp-1')
-    expect(appSource).toContain('whitespace-pre-wrap break-words')
-    expect(appSource).toContain('JSON.stringify(parsed, null, 2)')
-    expect(appSource).toContain('<pre')
-    expect(schedulerServiceSource).not.toContain('JSON.stringify(result).slice(0, 500)')
+    expect(npmrcSource).not.toContain('script-shell=')
+    expect(npmrcSource).not.toContain('C:\\Windows\\System32\\cmd.exe')
   })
 
   it('keeps site detail checkin actions and log layout aligned with checkin support', () => {
@@ -149,27 +94,5 @@ describe('App UI safety and layout contracts', () => {
     expect(appSource).toContain('ToneBadge tone={taskStatusTone(log.status)}')
     expect(appSource).toContain('columnClassNames={DETAIL_CHECKIN_LOG_COLUMNS}')
     expect(appSource).toContain('columnClassNames={DETAIL_TASK_LOG_COLUMNS}')
-  })
-
-  it('runs local scheduled triggers automatically from npm run dev', () => {
-    expect(existsSync('scripts/local-scheduled-dev.mjs')).toBe(true)
-    expect(packageSource).toContain('"dev": "node scripts/local-scheduled-dev.mjs"')
-    expect(localScheduledDevSource).toContain('runDueScheduledTriggers(baseUrl, crons, lastTriggered)')
-    expect(localScheduledDevSource).toContain('scheduled trigger sent')
-    expect(localScheduledDevSource).toContain('local scheduled simulator ready')
-    expect(localScheduledDevSource).toContain('FETCH_TIMEOUT_MS')
-    expect(localScheduledDevSource).toContain('SERVER_READY_TIMEOUT_MS')
-    expect(readmeSource).toContain('本地 dev 会按 `wrangler.toml` 自动模拟 scheduled 事件')
-    expect(readmeSource).not.toContain('本地不会按 `wrangler.toml` 的时间自动触发 Cron')
-  })
-
-  it('keeps local frontend and worker ports reachable on Windows loopback', () => {
-    expect(viteConfigSource).toContain("host: '127.0.0.1'")
-    expect(viteConfigSource).toContain("'http://127.0.0.1:8787'")
-  })
-
-  it('orders checkin and scheduled task logs newest first with deterministic ties', () => {
-    expect(checkinLogRepositorySource).toContain('ORDER BY datetime(l.checkin_time) DESC, l.id DESC')
-    expect(taskLogRepositorySource).toContain('ORDER BY datetime(exec_time) DESC, id DESC')
   })
 })

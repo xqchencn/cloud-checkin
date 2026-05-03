@@ -10,6 +10,10 @@ function tokenListEndpoint(site: ApiSite): string {
   return buildApiEndpoint(site.url, '/api/token/?p=0&size=10')
 }
 
+function tokenKeyEndpoint(site: ApiSite, remoteTokenId: string): string {
+  return buildApiEndpoint(site.url, `/api/token/${encodeURIComponent(remoteTokenId)}/key`)
+}
+
 function convertQuota(remoteQuota: number): number {
   return remoteQuota / 500000
 }
@@ -117,6 +121,17 @@ function extractRemoteTokens(payload: Record<string, unknown>): Record<string, u
   return []
 }
 
+async function fetchFullTokenKey(site: ApiSite, remoteTokenId: string, cookies: string): Promise<string | null> {
+  try {
+    const response = await withRetry(() => requestWithSite<Record<string, unknown>>(site, 'POST', tokenKeyEndpoint(site, remoteTokenId), undefined, '', cookies))
+    const data = extractDataObject(response.data)
+    const fullKey = extractString(data, 'key') || extractString(data, 'token') || extractString(data, 'token_key')
+    return fullKey && !isPlaceholderTokenKey(fullKey) ? fullKey : null
+  } catch {
+    return null
+  }
+}
+
 export function tokenService(env: Env) {
   const sites = siteRepository(env.DB)
   const tokens = tokenRepository(env.DB)
@@ -140,7 +155,10 @@ export function tokenService(env: Env) {
         if (input.remote_token_id) remoteIds.push(input.remote_token_id)
         const existing = existingTokens.find(token => token.remote_token_id === input.remote_token_id)
         if (!input.token_key || isPlaceholderTokenKey(input.token_key)) {
-          if (existing && !isPlaceholderTokenKey(existing.token_key)) {
+          const fullKey = input.remote_token_id ? await fetchFullTokenKey(site, input.remote_token_id, cookies) : null
+          if (fullKey) {
+            input.token_key = normalizeTokenKey(fullKey)
+          } else if (existing && !isPlaceholderTokenKey(existing.token_key)) {
             // 不能把占位符或展示值写入 token_key；本地已有完整 key 时只更新其他字段。
             input.token_key = existing.token_key
           } else {
