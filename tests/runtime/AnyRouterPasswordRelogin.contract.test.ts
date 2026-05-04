@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { requestWithSite } from '../../worker/src/services/api-client'
 import type { ApiSite } from '../../worker/src/types'
 
+/**
+ * 创建 AnyRouter 站点测试数据
+ * @param overrides - 站点属性覆盖配置
+ * @returns AnyRouter 站点对象
+ */
 function anyRouterSite(overrides: Partial<ApiSite> = {}): ApiSite {
   return {
     id: 1,
@@ -39,11 +44,19 @@ function anyRouterSite(overrides: Partial<ApiSite> = {}): ApiSite {
   }
 }
 
+/**
+ * AnyRouter 密码重新登录流程测试
+ * 验证 AnyRouter 平台的密码重新登录机制
+ */
 describe('AnyRouter password relogin flow', () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
+  /**
+   * 验证当存储的 cookie 过期时使用登录会话 cookie 重试
+   * 测试会话 cookie 过期后的重新登录流程
+   */
   it('retries with a login session cookie when the stored cookie is expired', async () => {
     const requests: Array<{ url: string; headers: Headers; body: string }> = []
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -95,6 +108,10 @@ describe('AnyRouter password relogin flow', () => {
     expect(requests[2].headers.get('cookie')).toBe('session=new')
   })
 
+  /**
+   * 验证当存储的访问令牌过期时使用登录访问令牌重试
+   * 测试访问令牌过期后的重新登录流程
+   */
   it('retries with a login access token when the stored token is expired', async () => {
     const requests: Array<{ url: string; headers: Headers; body: string }> = []
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -149,6 +166,10 @@ describe('AnyRouter password relogin flow', () => {
     expect(requests[2].headers.get('authorization')).toBe('Bearer fresh-token')
   })
 
+  /**
+   * 验证当远程响应为 HTTP 200 但报告令牌过期时重试
+   * 测试 HTTP 200 响应但令牌过期的重新登录流程
+   */
   it('retries when the remote response is HTTP 200 but reports an expired token', async () => {
     const requests: Array<{ url: string; headers: Headers; body: string }> = []
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

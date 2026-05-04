@@ -4,11 +4,21 @@ import { siteService } from '../services/site-service'
 import { jsonError, jsonOk, readJson } from '../response'
 import type { Env } from '../types'
 
+/**
+ * 从 URL 路径中提取站点 ID
+ * @param pathname - URL 路径
+ * @returns number | null - 站点 ID 或 null
+ */
 function idFromPath(pathname: string): number | null {
   const match = pathname.match(/^\/api\/sites\/(\d+)/)
   return match ? Number(match[1]) : null
 }
 
+/**
+ * 获取网页标题
+ * @param rawUrl - 原始 URL
+ * @returns Promise<string | null> - 网页标题或 null
+ */
 async function fetchHtmlTitle(rawUrl: string): Promise<string | null> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 2000)
@@ -30,6 +40,13 @@ async function fetchHtmlTitle(rawUrl: string): Promise<string | null> {
   }
 }
 
+/**
+ * 处理站点相关路由
+ * @param request - HTTP 请求
+ * @param env - 环境变量
+ * @param _ctx - 执行上下文
+ * @returns Promise<Response> - HTTP 响应
+ */
 export async function handleSiteRoutes(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url)
   const service = siteService(env)

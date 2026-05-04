@@ -14,8 +14,15 @@ import { useSiteBatchActions } from '../features/site/useSiteBatchActions'
 import { useSiteManagerActions } from '../features/site/useSiteManagerActions'
 import { useVisibleSiteRows } from '../features/site/useVisibleSiteRows'
 
+/**
+ * URL 聚合视图存储键
+ */
 const URL_AGGREGATED_VIEW_STORAGE_KEY = 'cloud-checkin:url-aggregated-view'
 
+/**
+ * 读取 URL 聚合视图偏好设置
+ * @returns boolean - 是否启用聚合视图
+ */
 function readUrlAggregatedViewPreference(): boolean {
   try {
     return window.localStorage.getItem(URL_AGGREGATED_VIEW_STORAGE_KEY) === 'true'
@@ -24,6 +31,10 @@ function readUrlAggregatedViewPreference(): boolean {
   }
 }
 
+/**
+ * 站点管理组件
+ * @param onLogout - 登出回调函数
+ */
 export function SiteManager({ onLogout }: { onLogout: () => void }) {
   const [sites, setSites] = useState<ApiSite[]>([])
   const [stats, setStats] = useState<TodayCheckinStats | null>(null)
@@ -47,6 +58,10 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [logoutSubmitting, setLogoutSubmitting] = useState(false)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
+
+  /**
+   * 加载站点数据
+   */
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -105,10 +120,16 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     setSaving
   })
 
+  /**
+   * 初始化加载站点数据
+   */
   useEffect(() => {
     void load()
   }, [load])
 
+  /**
+   * 同步页面状态从 URL
+   */
   useEffect(() => {
     function syncPageFromUrl() {
       closeMenus()
@@ -118,6 +139,9 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     return () => window.removeEventListener('popstate', syncPageFromUrl)
   }, [])
 
+  /**
+   * 处理菜单关闭逻辑
+   */
   useEffect(() => {
     if (!actionsOpen && !filterOpen) return
 
@@ -154,24 +178,57 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     }
   }, [actionsOpen, filterOpen])
 
+  /**
+   * 启用站点数量
+   */
   const enabledCount = useMemo(() => sites.filter(site => site.enabled).length, [sites])
+
+  /**
+   * 总余额
+   */
   const totalBalance = useMemo(() => sites.reduce((sum, site) => sum + Number(site.site_quota || 0), 0), [sites])
+
+  /**
+   * 已用余额
+   */
   const usedBalance = useMemo(() => sites.reduce((sum, site) => sum + Number(site.site_used_quota || 0), 0), [sites])
+
+  /**
+   * 可见站点列表
+   */
   const { visibleSites, visibleUrlRows } = useVisibleSiteRows({ sites, query, filter, urlAggregatedView })
 
+  /**
+   * 筛选标签
+   */
   const filterLabel = SITE_FILTERS.find(item => item.value === filter)?.label || '全部站点'
+
+  /**
+   * 空状态文本
+   */
   const emptyText = loading ? '加载中...' : sites.length ? '没有匹配的站点' : '暂无站点'
+
+  /**
+   * 页面元数据
+   */
   const pageMeta = {
     sites: { title: '站点管理', subtitle: '管理您的站点，自动签到与余额监控' },
     logs: { title: '日志', subtitle: '查看全局签到日志与任务执行记录' },
     settings: { title: '系统设置', subtitle: '系统概览、任务维护与数据操作' }
   }[activePage]
+
+  /**
+   * 导航项
+   */
   const navItems: Array<{ key: PageKey; label: string; icon: ReactNode }> = [
     { key: 'sites', label: '站点管理', icon: <List size={18} /> },
     { key: 'logs', label: '日志', icon: <ClipboardList size={18} /> },
     { key: 'settings', label: '系统设置', icon: <Settings size={18} /> }
   ]
 
+  /**
+   * 渲染筛选菜单
+   */
   function renderFilterMenu() {
     return (
       <SiteFilterMenu
@@ -185,6 +242,9 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     )
   }
 
+  /**
+   * 渲染操作菜单
+   */
   function renderActionMenu() {
     return (
       <SiteActionMenu
@@ -202,6 +262,9 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     )
   }
 
+  /**
+   * 切换 URL 聚合视图
+   */
   function toggleUrlAggregatedView() {
     setUrlAggregatedView(current => {
       const nextValue = !current
@@ -212,6 +275,9 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     })
   }
 
+  /**
+   * 渲染组件
+   */
   return (
     <>
       <AppChrome

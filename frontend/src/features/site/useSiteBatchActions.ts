@@ -8,6 +8,12 @@ import {
 } from '../../api/apiSite'
 import { useToast } from '../../toast'
 
+/**
+ * 汇总批量操作结果
+ * @param title - 操作标题
+ * @param result - 操作结果
+ * @returns 汇总后的字符串
+ */
 function summarizeBatchOperation(title: string, result: BatchOperationResult): string {
   const success = Number(result.success_count ?? result.success ?? 0)
   const failed = Number(result.fail_count ?? result.failed_count ?? result.failed ?? 0)
@@ -15,6 +21,14 @@ function summarizeBatchOperation(title: string, result: BatchOperationResult): s
   return `${title}完成：成功 ${success}，失败 ${failed}${skipped ? `，跳过 ${skipped}` : ''}`
 }
 
+/**
+ * 使用站点批量操作 Hook
+ * @param sites - 站点列表
+ * @param load - 加载函数
+ * @param setBusyKey - 设置忙碌键
+ * @param setError - 设置错误
+ * @returns 批量操作函数
+ */
 export function useSiteBatchActions({
   sites,
   load,
@@ -28,6 +42,14 @@ export function useSiteBatchActions({
 }) {
   const toast = useToast()
 
+  /**
+   * 运行直接批量操作
+   * @param key - 操作键
+   * @param title - 操作标题
+   * @param targets - 目标站点
+   * @param emptyMessage - 空消息
+   * @param run - 运行函数
+   */
   async function runDirectBatch(
     key: string,
     title: string,
@@ -52,21 +74,33 @@ export function useSiteBatchActions({
     }
   }
 
+  /**
+   * 运行批量查询余额
+   */
   async function runBatchBalance() {
     const targets = sites.filter(site => site.enabled)
     await runDirectBatch('batch-balance', '批量查询余额', targets, '没有已启用的站点可查询余额', targets => ApiSiteBatchRefreshBalance(targets.map(site => site.id)))
   }
 
+  /**
+   * 运行批量签到
+   */
   async function runBatchCheckin() {
     const targets = sites.filter(site => site.enabled && site.auto_checkin)
     await runDirectBatch('batch-checkin', '批量签到', targets, '没有已启用自动签到的站点', targets => ApiSiteBatchCheckin(targets.map(site => site.id)))
   }
 
+  /**
+   * 运行批量同步 Token
+   */
   async function runBatchTokens() {
     const targets = sites.filter(site => site.enabled)
     await runDirectBatch('batch-tokens', '批量同步 Token', targets, '没有已启用的站点可同步 Token', targets => ApiSiteBatchSyncTokens(targets.map(site => site.id)))
   }
 
+  /**
+   * 运行批量全部操作
+   */
   async function runBatchAll() {
     const enabledSites = sites.filter(site => site.enabled)
     const checkinSites = sites.filter(site => site.enabled && site.auto_checkin)

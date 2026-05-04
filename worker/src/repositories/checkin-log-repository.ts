@@ -1,23 +1,45 @@
 import { all, buildLimitOffset, nowIso, one } from '../db'
 import type { CheckinLog, Paginated } from '../types'
 
+/**
+ * 签到日志输入接口
+ */
 export interface CheckinLogInput {
+  /** 站点 ID */
   api_site_id: number
+  /** 签到时间 */
   checkin_time: string
+  /** 签到类型 */
   checkin_type: string
+  /** 状态 */
   status: string
+  /** 消息 */
   message: string
+  /** 奖励金额 */
   reward_amount: number
+  /** 新余额 */
   new_balance: number
+  /** 响应时间 */
   response_time: number
+  /** HTTP 状态码 */
   http_status_code: number
+  /** 错误详情 */
   error_details: string
+  /** 跳过原因 */
   skip_reason?: string | null
+  /** 失败原因 */
   failure_reason?: string | null
+  /** 余额之前 */
   balance_before?: number | null
+  /** 余额之后 */
   balance_after?: number | null
 }
 
+/**
+ * 将数据库行转换为签到日志对象
+ * @param row - 数据库行
+ * @returns 签到日志对象
+ */
 function toLog(row: Record<string, unknown>): CheckinLog {
   return {
     id: Number(row.id),
@@ -40,8 +62,17 @@ function toLog(row: Record<string, unknown>): CheckinLog {
   }
 }
 
+/**
+ * 签到日志仓库工厂函数
+ * @param db - D1 数据库
+ * @returns 签到日志仓库对象
+ */
 export function checkinLogRepository(db: D1Database) {
   return {
+    /**
+     * 创建签到日志
+     * @param input - 签到日志输入
+     */
     async create(input: CheckinLogInput): Promise<void> {
       await db.prepare(`
         INSERT INTO api_site_checkin_logs (
@@ -68,6 +99,12 @@ export function checkinLogRepository(db: D1Database) {
       ).run()
     },
 
+    /**
+     * 获取最新签到日志
+     * @param siteId - 站点 ID
+     * @param limit - 限制数量
+     * @returns Promise<CheckinLog[]> - 签到日志列表
+     */
     async latest(siteId: number, limit = 20): Promise<CheckinLog[]> {
       const rows = await all<Record<string, unknown>>(db.prepare(`
         SELECT l.*, s.name AS site_name
@@ -80,6 +117,11 @@ export function checkinLogRepository(db: D1Database) {
       return rows.map(toLog)
     },
 
+    /**
+     * 分页查询签到日志
+     * @param params - 查询参数
+     * @returns Promise<Paginated<CheckinLog>> - 分页结果
+     */
     async paginate(params: { siteId?: number; status?: string; checkinType?: string; page?: number; pageSize?: number }): Promise<Paginated<CheckinLog>> {
       const { limit, offset, page, pageSize } = buildLimitOffset(params.page, params.pageSize)
       const where: string[] = []
@@ -116,12 +158,21 @@ export function checkinLogRepository(db: D1Database) {
       }
     },
 
+    /**
+     * 清空所有签到日志
+     * @returns Promise<number> - 删除数量
+     */
     async clearAll(): Promise<number> {
       const row = await one<{ count: number }>(db.prepare('SELECT COUNT(*) AS count FROM api_site_checkin_logs'))
       await db.prepare('DELETE FROM api_site_checkin_logs').run()
       return Number(row?.count ?? 0)
     },
 
+    /**
+     * 删除旧的签到日志
+     * @param cutoffIso - 截止时间
+     * @returns Promise<number> - 删除数量
+     */
     async deleteOlderThan(cutoffIso: string): Promise<number> {
       const row = await one<{ count: number }>(
         db.prepare("SELECT COUNT(*) AS count FROM api_site_checkin_logs WHERE datetime(created_at) < datetime(?)").bind(cutoffIso)
@@ -130,6 +181,10 @@ export function checkinLogRepository(db: D1Database) {
       return Number(row?.count ?? 0)
     },
 
+    /**
+     * 获取今日签到统计
+     * @returns Promise<Record<string, unknown>> - 签到统计
+     */
     async todayStatistics(): Promise<Record<string, unknown>> {
       const rows = await all<Record<string, unknown>>(db.prepare(`
         SELECT s.id AS site_id, s.name AS site_name, s.api_type, l.status, l.message, l.error_details AS error, l.checkin_time AS time

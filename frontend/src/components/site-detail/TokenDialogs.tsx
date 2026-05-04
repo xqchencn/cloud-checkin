@@ -3,18 +3,38 @@ import { Copy, KeyRound, Plus, Trash2 } from 'lucide-react'
 import { ApiToken, ApiTokenValue } from '../../api/apiSite'
 import { ButtonIcon, DialogCard, ModalShell } from '../../shared/ui'
 
+/**
+ * 掩码显示 Token 密钥
+ * @param value - Token 密钥值
+ * @returns 掩码后的字符串显示
+ */
 function maskTokenKey(value: string | null | undefined): string {
   if (!value) return '-'
   if (value.length <= 12) return value
   return `${value.slice(0, 8)}****${value.slice(-4)}`
 }
 
+/**
+ * 确保分组选项包含当前分组
+ * @param groups - 现有分组列表
+ * @param group - 当前分组
+ * @returns 更新后的分组选项列表
+ */
 function ensureGroupOption(groups: string[], group: string | null | undefined): string[] {
   const current = String(group || '').trim()
   if (!current || groups.includes(current)) return groups
   return [...groups, current]
 }
 
+/**
+ * 远程 Token 创建模态框组件
+ * @param groups - 可用分组列表
+ * @param loading - 是否正在加载分组
+ * @param error - 错误信息
+ * @param saving - 是否正在保存
+ * @param onClose - 关闭回调
+ * @param onSave - 保存回调
+ */
 export function RemoteTokenModal({ groups, loading, error, saving, onClose, onSave }: {
   groups: string[]
   loading: boolean
@@ -77,6 +97,13 @@ export function RemoteTokenModal({ groups, loading, error, saving, onClose, onSa
   )
 }
 
+/**
+ * 远程 Token 删除确认模态框组件
+ * @param token - 要删除的 Token 对象
+ * @param deleting - 是否正在删除
+ * @param onClose - 关闭回调
+ * @param onConfirm - 确认删除回调
+ */
 export function RemoteTokenDeleteModal({ token, deleting, onClose, onConfirm }: {
   token: ApiToken | null
   deleting: boolean
@@ -109,6 +136,10 @@ export function RemoteTokenDeleteModal({ token, deleting, onClose, onConfirm }: 
   )
 }
 
+/**
+ * Token 密钥值显示组件
+ * @param token - Token 对象
+ */
 export function TokenKeyValue({ token }: { token: ApiToken }) {
   const [copying, setCopying] = useState(false)
   const [copyError, setCopyError] = useState('')

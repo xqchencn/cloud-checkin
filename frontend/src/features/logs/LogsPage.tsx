@@ -8,6 +8,9 @@ import { ButtonIcon, DialogCard, ModalShell } from '../../shared/ui'
 import { useLogPageSize } from '../../shared/useLogPageSize'
 import { useToast } from '../../toast'
 
+/**
+ * 日志页面组件
+ */
 export function LogsPage() {
   const { pageSize, listRef, paginationRef } = useLogPageSize()
   const [tab, setTab] = useState<'checkin' | 'task'>('checkin')
@@ -19,6 +22,9 @@ export function LogsPage() {
   const [taskData, setTaskData] = useState<Paginated<TaskLog>>({ logs: [], total: 0, page: 1, page_size: pageSize, total_pages: 0 })
   const toast = useToast()
 
+  /**
+   * 加载日志
+   */
   const loadLogs = useCallback(async () => {
     setLoading(true)
     try {
@@ -32,14 +38,23 @@ export function LogsPage() {
     }
   }, [page, pageSize, status, tab, toast])
 
+  /**
+   * 初始化加载日志
+   */
   useEffect(() => {
     void loadLogs()
   }, [loadLogs])
 
+  /**
+   * 页面大小变更时重置页码
+   */
   useEffect(() => {
     setPage(1)
   }, [pageSize])
 
+  /**
+   * 清空日志
+   */
   async function clearLogs() {
     if (!clearTarget) return
     setLoading(true)
@@ -123,6 +138,13 @@ export function LogsPage() {
   )
 }
 
+/**
+ * 清空日志模态框组件
+ * @param target - 清空目标
+ * @param loading - 是否正在加载
+ * @param onClose - 关闭回调
+ * @param onConfirm - 确认回调
+ */
 function ClearLogsModal({ target, loading, onClose, onConfirm }: {
   target: 'checkin' | 'task' | null
   loading: boolean

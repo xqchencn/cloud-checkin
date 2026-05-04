@@ -4,6 +4,14 @@ import { getCheckinDisplay } from '../../shared/checkin'
 import { compareSitesForDefaultDisplay } from '../../shared/format'
 import type { SiteFilter, VisibleUrlRow } from '../../shared/types'
 
+/**
+ * 使用可见站点行 Hook
+ * @param sites - 站点列表
+ * @param query - 查询关键词
+ * @param filter - 筛选条件
+ * @param urlAggregatedView - URL 聚合视图
+ * @returns 可见站点和 URL 行
+ */
 export function useVisibleSiteRows({
   sites,
   query,
@@ -15,6 +23,9 @@ export function useVisibleSiteRows({
   filter: SiteFilter
   urlAggregatedView: boolean
 }) {
+  /**
+   * 可见站点
+   */
   const visibleSites = useMemo(() => {
     const keyword = query.trim().toLowerCase()
     return sites.filter(site => {
@@ -30,6 +41,9 @@ export function useVisibleSiteRows({
     }).sort(compareSitesForDefaultDisplay)
   }, [filter, query, sites])
 
+  /**
+   * 可见 URL 分组
+   */
   const visibleUrlGroups = useMemo(() => {
     const groups = new Map<string, ApiSite[]>()
     for (const site of visibleSites) {
@@ -44,6 +58,9 @@ export function useVisibleSiteRows({
     }))
   }, [visibleSites])
 
+  /**
+   * 可见 URL 行
+   */
   const visibleUrlRows = useMemo<VisibleUrlRow[]>(() => {
     if (!urlAggregatedView) return visibleSites.map(site => ({ type: 'site', key: `site-${site.id}`, site }))
     return visibleUrlGroups.flatMap(group => [

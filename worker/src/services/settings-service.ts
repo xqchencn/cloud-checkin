@@ -2,10 +2,14 @@ import { settingsRepository } from '../repositories/settings-repository'
 import { WRANGLER_CHECKIN_CRON, WRANGLER_CLEANUP_CRON } from '../../../shared/generated/wrangler-crons'
 import type { Env, PasswordUpdatePayload, PublicAppSettings, PublicSettingItem, RuntimeAppSettings, SettingsUpdatePayload } from '../types'
 
+/** 密码迭代次数 */
 const PASSWORD_ITERATIONS = 210000
+/** 密钥长度（比特） */
 const PASSWORD_KEY_LENGTH_BITS = 256
+/** 默认初始密码 */
 export const DEFAULT_INITIAL_PASSWORD = 'change-this-password'
 
+/** 设置键常量 */
 export const SETTING_KEYS = {
   passwordHash: 'auth.password_hash',
   passwordSalt: 'auth.password_salt',
@@ -14,8 +18,10 @@ export const SETTING_KEYS = {
   logRetentionDays: 'logs.retention_days'
 } as const
 
+/** 所有设置键 */
 const ALL_KEYS = Object.values(SETTING_KEYS)
 // 分类标题和说明同样进入 D1，这样前端分组文本就不需要再写死在组件里。
+/** 分类键常量 */
 const CATEGORY_KEYS = {
   authTitle: 'meta.category.auth.title',
   authDescription: 'meta.category.auth.description',
@@ -28,8 +34,14 @@ const CATEGORY_KEYS = {
   logsSortOrder: 'meta.category.logs.sort_order'
 } as const
 
+/** 所有设置键（包括分类键） */
 const ALL_SETTING_KEYS = [...ALL_KEYS, ...Object.values(CATEGORY_KEYS)]
 
+/**
+ * 字节数组转 Base64 URL 编码
+ * @param bytes - 字节数组
+ * @returns Base64 URL 编码字符串
+ */
 function bytesToBase64Url(bytes: ArrayBuffer | Uint8Array): string {
   const array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
   let binary = ''
@@ -37,17 +49,37 @@ function bytesToBase64Url(bytes: ArrayBuffer | Uint8Array): string {
   return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
 }
 
+/**
+ * Base64 URL 编码转字节数组
+ * @param value - Base64 URL 编码字符串
+ * @returns 字节数组
+ */
 function base64UrlToBytes(value: string): Uint8Array {
   const padded = value.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - (value.length % 4)) % 4)
   return Uint8Array.from(atob(padded), char => char.charCodeAt(0))
 }
 
+/**
+ * 解析数字
+ * @param value - 字符串值
+ * @param fallback - 默认值
+ * @param min - 最小值
+ * @param max - 最大值
+ * @returns 解析后的数字
+ */
 function parseNumber(value: string | undefined, fallback: number, min: number, max: number): number {
   const parsed = Number(value || '')
   if (!Number.isFinite(parsed)) return fallback
   return Math.min(max, Math.max(min, Math.floor(parsed)))
 }
 
+/**
+ * 派生密码哈希
+ * @param password - 密码
+ * @param salt - 盐值
+ * @param iterations - 迭代次数
+ * @returns Promise<string> - 密码哈希
+ */
 async function derivePasswordHash(password: string, salt: Uint8Array, iterations: number): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -64,6 +96,12 @@ async function derivePasswordHash(password: string, salt: Uint8Array, iterations
   return bytesToBase64Url(bits)
 }
 
+/**
+ * 安全比较字符串
+ * @param left - 左侧字符串
+ * @param right - 右侧字符串
+ * @returns 是否相等
+ */
 function safeEqual(left: string, right: string): boolean {
   if (left.length !== right.length) return false
   let diff = 0
@@ -71,6 +109,10 @@ function safeEqual(left: string, right: string): boolean {
   return diff === 0
 }
 
+/**
+ * 获取配置的 Cron
+ * @returns 运行时调度器设置
+ */
 function getConfiguredCron(): RuntimeAppSettings['scheduler'] {
   return {
     checkin_cron: WRANGLER_CHECKIN_CRON,
@@ -78,6 +120,11 @@ function getConfiguredCron(): RuntimeAppSettings['scheduler'] {
   }
 }
 
+/**
+ * 解析运行时设置
+ * @param values - 设置值映射
+ * @returns 运行时应用设置
+ */
 function parseRuntimeSettings(values: Record<string, string>): RuntimeAppSettings {
   return {
     session: {
@@ -90,6 +137,12 @@ function parseRuntimeSettings(values: Record<string, string>): RuntimeAppSetting
   }
 }
 
+/**
+ * 要求数字值
+ * @param value - 输入值
+ * @param item - 设置项
+ * @returns 字符串化的数字
+ */
 function requireNumber(value: unknown, item: PublicSettingItem): string {
   const parsed = Number(value)
   const min = item.options?.min ?? Number.MIN_SAFE_INTEGER
@@ -100,6 +153,12 @@ function requireNumber(value: unknown, item: PublicSettingItem): string {
   return String(Math.floor(parsed))
 }
 
+/**
+ * 规范化设置值
+ * @param value - 输入值
+ * @param item - 设置项
+ * @returns 规范化后的字符串值
+ */
 function normalizeSettingValue(value: unknown, item: PublicSettingItem): string {
   if (item.type === 'number') return requireNumber(value, item)
   if (item.type === 'boolean') {
@@ -109,6 +168,10 @@ function normalizeSettingValue(value: unknown, item: PublicSettingItem): string 
   return String(value ?? '')
 }
 
+/**
+ * 构建只读调度器设置项
+ * @returns 只读设置项数组
+ */
 function buildReadonlySchedulerItems(): PublicSettingItem[] {
   const scheduler = getConfiguredCron()
   return [
@@ -139,6 +202,11 @@ function buildReadonlySchedulerItems(): PublicSettingItem[] {
   ]
 }
 
+/**
+ * 构建分类列表
+ * @param values - 设置值映射
+ * @returns 分类数组
+ */
 function buildCategories(values: Record<string, string>): PublicAppSettings['categories'] {
   return [
     {

@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 
+/**
+ * 计算日志页面大小
+ * @param listElement - 列表元素
+ * @param paginationElement - 分页元素
+ * @returns 页面大小
+ */
 export function calculateLogPageSize(listElement?: HTMLElement | null, paginationElement?: HTMLElement | null): number {
   if (typeof window === 'undefined') return 10
   const isDesktop = window.matchMedia('(min-width: 768px)').matches
@@ -15,6 +21,10 @@ export function calculateLogPageSize(listElement?: HTMLElement | null, paginatio
   return Math.max(minRows, Math.min(maxRows, Math.floor(available / itemHeight)))
 }
 
+/**
+ * 使用日志页面大小 Hook
+ * @returns 页面大小和引用
+ */
 export function useLogPageSize() {
   const listRef = useRef<HTMLDivElement | null>(null)
   const paginationRef = useRef<HTMLDivElement | null>(null)

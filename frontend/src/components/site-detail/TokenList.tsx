@@ -9,6 +9,9 @@ import { ButtonIcon, ToneBadge } from '../../shared/ui'
 import { useToast } from '../../toast'
 import { RemoteTokenDeleteModal, RemoteTokenModal, TokenKeyValue } from './TokenDialogs'
 
+/**
+ * Token 列表组件属性接口
+ */
 interface TokenListProps {
   siteId: number
   tokens: ApiToken[]
@@ -18,14 +21,29 @@ interface TokenListProps {
   onSaved: () => Promise<void>
 }
 
+/**
+ * 格式化数字为两位小数
+ * @param value - 数值
+ * @returns 格式化后的字符串
+ */
 function formatNumber(value: number | null | undefined): string {
   return Number(value || 0).toFixed(2)
 }
 
+/**
+ * 格式化金额为美元显示
+ * @param value - 金额数值
+ * @returns 格式化后的货币字符串
+ */
 function formatMoney(value: number | null | undefined): string {
   return `$${formatNumber(value)}`
 }
 
+/**
+ * 格式化日期时间
+ * @param value - 日期字符串或时间戳
+ * @returns 本地化显示的日期时间字符串
+ */
 function formatDate(value: string | null | undefined): string {
   if (!value) return '-'
   if (value === '-1') return '-'
@@ -39,37 +57,72 @@ function formatDate(value: string | null | undefined): string {
   return value.replace('T', ' ').replace(/\.\d+Z$/, ' UTC')
 }
 
+/**
+ * 判断是否为无限额度的 Token
+ * @param token - Token 对象
+ * @returns 是否无限额度
+ */
 function isUnlimitedToken(token: ApiToken): boolean {
   return token.token_unlimited_quota || token.token_quota === 0
 }
 
+/**
+ * 格式化 Token 额度显示
+ * @param token - Token 对象
+ * @returns 格式化后的额度字符串
+ */
 function formatTokenQuota(token: ApiToken): string {
   if (isUnlimitedToken(token)) return '不限'
   if (token.token_quota == null) return '-'
   return formatMoney(token.token_quota)
 }
 
+/**
+ * 格式化 Token 剩余额度
+ * @param token - Token 对象
+ * @returns 格式化后的剩余额度字符串
+ */
 function formatTokenRemainingQuota(token: ApiToken): string {
   if (isUnlimitedToken(token)) return '不限'
   if (token.token_quota == null || token.token_used_quota == null) return '-'
   return formatMoney(token.token_quota - token.token_used_quota)
 }
 
+/**
+ * 格式化 Token 过期时间
+ * @param value - 过期时间值
+ * @returns 格式化后的过期时间字符串
+ */
 function formatTokenExpiry(value: string | null | undefined): string {
   if (!value || value === '-1') return '永不过期'
   return formatDate(value)
 }
 
+/**
+ * 格式化 Token 值状态
+ * @param value - 值状态
+ * @returns 可读的状态字符串
+ */
 function formatTokenValueStatus(value: ApiToken['value_status']): string {
   if (value === 'ready') return '完整'
   if (value === 'masked_pending') return '待补全'
   return '缺失'
 }
 
+/**
+ * Token 时间值显示组件
+ * @param value - 时间值
+ * @returns 时间显示元素
+ */
 function TokenTimeValue({ value }: { value: string }) {
   return <span className="block truncate whitespace-nowrap" title={value}>{value}</span>
 }
 
+/**
+ * Token 详情网格布局组件
+ * @param items - 键值对数组
+ * @returns 网格布局的详情展示
+ */
 function TokenDetailGrid({ items }: { items: Array<[string, ReactNode]> }) {
   return (
     <dl className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-3">
@@ -83,6 +136,15 @@ function TokenDetailGrid({ items }: { items: Array<[string, ReactNode]> }) {
   )
 }
 
+/**
+ * Token 列表组件
+ * @param siteId - 站点 ID
+ * @param tokens - Token 列表
+ * @param remoteGroupOptions - 远程分组选项
+ * @param remoteGroupLoading - 是否正在加载远程分组
+ * @param remoteGroupError - 远程分组错误信息
+ * @param onSaved - 数据保存成功回调
+ */
 export function TokenList({ siteId, tokens, remoteGroupOptions, remoteGroupLoading, remoteGroupError, onSaved }: TokenListProps) {
   const [remoteModalOpen, setRemoteModalOpen] = useState(false)
   const [savingRemoteToken, setSavingRemoteToken] = useState(false)
@@ -97,6 +159,10 @@ export function TokenList({ siteId, tokens, remoteGroupOptions, remoteGroupLoadi
     setRemoteModalOpen(true)
   }
 
+  /**
+   * 保存远端 Token
+   * @param payload - Token 创建参数
+   */
   async function saveRemoteToken(payload: { tokenName: string; group: string }) {
     if (!remoteModalOpen) return
     setSavingRemoteToken(true)
@@ -115,6 +181,9 @@ export function TokenList({ siteId, tokens, remoteGroupOptions, remoteGroupLoadi
     }
   }
 
+  /**
+   * 删除远端 Token
+   */
   async function deleteRemoteToken() {
     const token = deleteRemoteTarget
     if (!token?.remote_token_id) return
@@ -134,6 +203,11 @@ export function TokenList({ siteId, tokens, remoteGroupOptions, remoteGroupLoadi
     }
   }
 
+  /**
+   * 渲染 Token 操作按钮
+   * @param token - Token 对象
+   * @returns 操作按钮元素
+   */
   function renderTokenActions(token: ApiToken) {
     return (
       <>

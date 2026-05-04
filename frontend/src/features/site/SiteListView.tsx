@@ -6,6 +6,20 @@ import { formatDate, formatMoney } from '../../shared/format'
 import { SiteAvatar, StatusBadge, ToneBadge } from '../../shared/ui'
 import { SiteMobileCard, StatCard } from './SiteCards'
 
+/**
+ * 站点列表视图组件
+ * @param sites - 站点列表
+ * @param stats - 今日签到统计
+ * @param enabledCount - 启用站点数量
+ * @param totalBalance - 总余额
+ * @param usedBalance - 已用余额
+ * @param visibleSites - 可见站点列表
+ * @param visibleUrlRows - 可见 URL 行数据
+ * @param emptyText - 空状态文本
+ * @param onDetail - 查看详情回调
+ * @param onEdit - 编辑站点回调
+ * @param onDelete - 删除站点回调
+ */
 export function SiteListView({
   sites,
   stats,
@@ -98,6 +112,10 @@ export function SiteListView({
   )
 }
 
+/**
+ * URL 分组行组件
+ * @param row - URL 分组行数据
+ */
 function SiteUrlGroupRow({ row }: { row: Extract<VisibleUrlRow, { type: 'url-group' }> }) {
   return (
     <tr className="bg-slate-50/80">
@@ -108,6 +126,13 @@ function SiteUrlGroupRow({ row }: { row: Extract<VisibleUrlRow, { type: 'url-gro
   )
 }
 
+/**
+ * 站点表格行组件
+ * @param site - 站点对象
+ * @param onDetail - 查看详情回调
+ * @param onEdit - 编辑站点回调
+ * @param onDelete - 删除站点回调
+ */
 function SiteTableRow({ site, onDetail, onEdit, onDelete }: {
   site: ApiSite
   onDetail: (site: ApiSite) => void

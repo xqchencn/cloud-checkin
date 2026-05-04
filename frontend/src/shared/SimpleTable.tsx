@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react'
 
+/**
+ * 简单表格组件
+ * @param headers - 表头
+ * @param rows - 数据行
+ * @param mobile - 移动端显示模式
+ * @param columnClassNames - 列样式类名
+ */
 export function SimpleTable({ headers, rows, mobile = 'generic', columnClassNames = [] }: {
   headers: string[]
   rows: ReactNode[][]
@@ -45,6 +52,11 @@ export function SimpleTable({ headers, rows, mobile = 'generic', columnClassName
   )
 }
 
+/**
+ * 渲染日志单元格
+ * @param cell - 单元格内容
+ * @returns 渲染后的单元格
+ */
 function renderLogCell(cell: ReactNode): ReactNode {
   if (cell == null || cell === '') return <span>-</span>
   if (typeof cell === 'string' || typeof cell === 'number') {

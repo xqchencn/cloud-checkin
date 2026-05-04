@@ -6,7 +6,15 @@ const siteServiceSource = readFileSync('worker/src/services/site-service.ts', 'u
 const checkinServiceSource = readFileSync('worker/src/services/checkin-service.ts', 'utf8')
 const dbSource = readFileSync('worker/src/db.ts', 'utf8')
 
+/**
+ * 签到端点合约测试
+ * 验证签到端点配置和验证功能
+ */
 describe('checkin endpoint contract', () => {
+  /**
+   * 验证验证和存储一个签到端点字段，使用路径或完整 URL 规则
+   * 测试签到端点的验证和存储逻辑
+   */
   it('validates and stores one checkin endpoint field with path or full URL rules', () => {
     expect(siteServiceSource).toContain('function normalizeCheckinEndpoint(input: unknown): string')
     expect(siteServiceSource).toContain("parsed.protocol !== 'http:' && parsed.protocol !== 'https:'")

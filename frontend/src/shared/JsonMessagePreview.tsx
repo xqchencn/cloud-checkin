@@ -1,5 +1,10 @@
 import { formatStructuredMessage, getLogMessageRaw, parseJsonMessage } from './format'
 
+/**
+ * JSON 消息预览组件
+ * @param message - 消息
+ * @param error - 错误
+ */
 export function JsonMessagePreview({ message, error }: {
   message?: string | null
   error?: string | null

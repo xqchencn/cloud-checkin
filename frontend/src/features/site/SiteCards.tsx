@@ -6,6 +6,15 @@ import { getCheckinDisplay } from '../../shared/checkin'
 import { formatMoney } from '../../shared/format'
 import { ButtonIcon, DialogCard, ModalShell, SiteAvatar, StatusBadge, ToneBadge } from '../../shared/ui'
 
+/**
+ * 删除确认模态框组件
+ * @param site - 站点对象
+ * @param deleting - 是否正在删除
+ * @param confirmName - 确认名称
+ * @param onConfirmNameChange - 名称变更回调
+ * @param onClose - 关闭回调
+ * @param onConfirm - 确认回调
+ */
 export function DeleteConfirmModal({ site, deleting, confirmName, onConfirmNameChange, onClose, onConfirm }: {
   site: ApiSite | null
   deleting: boolean
@@ -17,6 +26,9 @@ export function DeleteConfirmModal({ site, deleting, confirmName, onConfirmNameC
   if (!site) return null
   const currentSite = site
 
+  /**
+   * 复制站点名称
+   */
   async function copyName() {
     await navigator.clipboard?.writeText(currentSite.name).catch(() => undefined)
     onConfirmNameChange(currentSite.name)
@@ -61,6 +73,13 @@ export function DeleteConfirmModal({ site, deleting, confirmName, onConfirmNameC
   )
 }
 
+/**
+ * 站点移动端卡片组件
+ * @param site - 站点对象
+ * @param onDetail - 详情回调
+ * @param onEdit - 编辑回调
+ * @param onDelete - 删除回调
+ */
 export function SiteMobileCard({ site, onDetail, onEdit, onDelete }: {
   site: ApiSite
   onDetail: () => void
@@ -105,6 +124,10 @@ export function SiteMobileCard({ site, onDetail, onEdit, onDelete }: {
   )
 }
 
+/**
+ * 批量操作进度面板组件
+ * @param progress - 批量操作进度
+ */
 export function BatchProgressPanel({ progress }: { progress: BatchProgress }) {
   const percent = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0
   return (
@@ -127,6 +150,15 @@ export function BatchProgressPanel({ progress }: { progress: BatchProgress }) {
   )
 }
 
+/**
+ * 统计卡片组件
+ * @param label - 标签
+ * @param value - 值
+ * @param hint - 提示
+ * @param tone - 颜色主题
+ * @param hintTone - 提示颜色主题
+ * @param icon - 图标
+ */
 export function StatCard({ label, value, hint, tone, hintTone = 'default', icon }: {
   label: string
   value: number | string

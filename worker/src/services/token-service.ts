@@ -7,6 +7,11 @@ import { modelService } from './model-service'
 import { getPlatformAdapter } from './platforms'
 import { getEndpointCandidates, getEndpointTokens } from './site-types'
 
+/**
+ * 获取 Token 列表路径
+ * @param apiType - API 类型
+ * @returns Token 列表路径
+ */
 export function tokenListPath(apiType: string): string {
   const adapter = getPlatformAdapter(apiType)
   const tokenBase = adapter?.endpoints.tokens[0] ?? '/api/token/'
@@ -14,20 +19,41 @@ export function tokenListPath(apiType: string): string {
   return `${tokenBase}${separator}p=0&size=${adapter?.token.listPageSize ?? 100}`
 }
 
+/**
+ * 获取 Token 列表端点
+ * @param site - 站点信息
+ * @returns Token 列表端点
+ */
 function tokenListEndpoint(site: ApiSite): string {
   return buildApiEndpoint(site.url, tokenListPath(site.api_type))
 }
 
+/**
+ * 获取 Token 集合端点
+ * @param site - 站点信息
+ * @returns Token 集合端点
+ */
 function tokenCollectionEndpoint(site: ApiSite): string {
   return buildApiEndpoint(site.url, getEndpointTokens(site.api_type))
 }
 
+/**
+ * 获取 Token 删除端点候选列表
+ * @param site - 站点信息
+ * @param remoteTokenId - 远程 Token ID
+ * @returns Token 删除端点候选列表
+ */
 function tokenDeleteEndpointCandidates(site: ApiSite, remoteTokenId: string): string[] {
   const base = getEndpointTokens(site.api_type).replace(/\/+$/, '')
   const id = encodeURIComponent(remoteTokenId)
   return [`${base}/${id}`, `${base}/${id}/`].map(path => buildApiEndpoint(site.url, path))
 }
 
+/**
+ * 获取 Token 分组端点候选列表
+ * @param apiType - API 类型
+ * @returns Token 分组端点候选列表
+ */
 export function tokenGroupEndpointCandidates(apiType: string): string[] {
   const configured = getEndpointCandidates(apiType, 'tokenGroups')
   return Array.from(new Set([
@@ -37,20 +63,37 @@ export function tokenGroupEndpointCandidates(apiType: string): string[] {
   ].filter(Boolean)))
 }
 
+/**
+ * 转换配额
+ * @param remoteQuota - 远程配额
+ * @param apiType - API 类型
+ * @returns 转换后的配额
+ */
 function convertQuota(remoteQuota: number, apiType: string): number {
   return remoteQuota / (getPlatformAdapter(apiType)?.balance.quotaFactor ?? 500000)
 }
 
+/**
+ * 规范化 Token 键
+ * @param tokenKey - Token 键
+ * @returns 规范化后的 Token 键
+ */
 function normalizeTokenKey(tokenKey: string): string {
   const trimmed = tokenKey.trim()
   if (!trimmed) return trimmed
   return trimmed.startsWith('sk-') ? trimmed : `sk-${trimmed}`
 }
 
+/**
+ * 判断是否为占位符 Token 键
+ * @param tokenKey - Token 键
+ * @returns 是否为占位符
+ */
 function isPlaceholderTokenKey(tokenKey: string | null | undefined): boolean {
   return Boolean(tokenKey && tokenKey.includes('*'))
 }
 
+/** 分组容器键列表 */
 const GROUP_CONTAINER_KEYS = [
   'groups',
   'group_ratio',
@@ -65,9 +108,16 @@ const GROUP_CONTAINER_KEYS = [
   'available_groups',
   'availableGroups'
 ]
+/** 分组项名称键列表 */
 const GROUP_ITEM_NAME_KEYS = ['name', 'group', 'key', 'id', 'value', 'label', 'group_name', 'token_group']
+/** 分组元数据键列表 */
 const GROUP_META_KEYS = ['success', 'message', 'code', 'data', 'result', 'error', 'status']
 
+/**
+ * 规范化分组名称
+ * @param value - 输入值
+ * @returns 规范化后的分组名称或 null
+ */
 function normalizeGroupName(value: unknown): string | null {
   if (typeof value === 'string' || typeof value === 'number') {
     const normalized = String(value).trim()
@@ -76,6 +126,11 @@ function normalizeGroupName(value: unknown): string | null {
   return null
 }
 
+/**
+ * 规范化分组名称列表
+ * @param values - 输入值列表
+ * @returns 规范化后的分组名称列表
+ */
 function normalizeGroupNames(values: unknown[]): string[] {
   const names: string[] = []
   for (const item of values) {
@@ -95,6 +150,11 @@ function normalizeGroupNames(values: unknown[]): string[] {
   return Array.from(new Set(names))
 }
 
+/**
+ * 从记录中获取分组名称
+ * @param record - 记录对象
+ * @returns 分组名称或 null
+ */
 function groupNameFromRecord(record: Record<string, unknown>): string | null {
   for (const key of GROUP_ITEM_NAME_KEYS) {
     const normalized = normalizeGroupName(record[key])
@@ -103,6 +163,11 @@ function groupNameFromRecord(record: Record<string, unknown>): string | null {
   return null
 }
 
+/**
+ * 收集分组名称
+ * @param source - 输入源
+ * @returns 分组名称列表
+ */
 function collectGroupNames(source: unknown): string[] {
   if (Array.isArray(source)) return normalizeGroupNames(source)
   const direct = normalizeGroupName(source)
@@ -123,6 +188,11 @@ function collectGroupNames(source: unknown): string[] {
   return normalizeGroupNames(Object.keys(record).filter(key => !GROUP_META_KEYS.includes(key.toLowerCase())))
 }
 
+/**
+ * 提取远程 Token 分组名称
+ * @param payload - 载荷数据
+ * @returns 分组名称列表
+ */
 function extractRemoteTokenGroupNames(payload: Record<string, unknown>): string[] {
   if (payload.success === false) return []
   const data = extractDataObject(payload)
@@ -134,11 +204,21 @@ function extractRemoteTokenGroupNames(payload: Record<string, unknown>): string[
   return normalizeGroupNames(candidates.flatMap(candidate => collectGroupNames(candidate)))
 }
 
+/**
+ * 获取远程分组错误消息
+ * @param payload - 载荷数据
+ * @returns 错误消息或 null
+ */
 function remoteGroupErrorMessage(payload: Record<string, unknown>): string | null {
   if (payload.success !== false) return null
   return extractString(payload, 'message') || extractString(payload, 'error') || '拉取远端 Token 分组失败'
 }
 
+/**
+ * 远程时间转 ISO 时间
+ * @param value - 远程时间值
+ * @returns ISO 时间字符串或 null
+ */
 function remoteTimeToIso(value: unknown): string | null {
   if (typeof value === 'number') {
     return value > 0 ? new Date(value * 1000).toISOString() : null
@@ -151,6 +231,11 @@ function remoteTimeToIso(value: unknown): string | null {
   return null
 }
 
+/**
+ * 解析 Token 激活状态
+ * @param remote - 远程数据
+ * @returns 激活状态 (1 或 0)
+ */
 function parseTokenActive(remote: Record<string, unknown>): number {
   const status = remote.status
   if (typeof status === 'number') return status === 1 ? 1 : 0
@@ -162,6 +247,12 @@ function parseTokenActive(remote: Record<string, unknown>): number {
   return 1
 }
 
+/**
+ * 获取第一个数字值
+ * @param data - 数据对象
+ * @param fields - 字段列表
+ * @returns 数字值或 null
+ */
 function firstNumber(data: Record<string, unknown>, fields: string[]): number | null {
   for (const field of fields) {
     const value = extractOptionalNumber(data, field)
@@ -170,6 +261,12 @@ function firstNumber(data: Record<string, unknown>, fields: string[]): number | 
   return null
 }
 
+/**
+ * 获取第一个布尔值或 null
+ * @param data - 数据对象
+ * @param fields - 字段列表
+ * @returns 布尔值或 null
+ */
 function firstBooleanOrNull(data: Record<string, unknown>, fields: string[]): boolean | null {
   for (const field of fields) {
     const value = extractBoolean(data, field)
@@ -178,6 +275,12 @@ function firstBooleanOrNull(data: Record<string, unknown>, fields: string[]): bo
   return null
 }
 
+/**
+ * 判断是否为无限配额
+ * @param remote - 远程数据
+ * @param quotaLimit - 配额限制
+ * @returns 是否为无限配额
+ */
 function isUnlimitedQuota(remote: Record<string, unknown>, quotaLimit: number | null): boolean {
   const explicit = firstBooleanOrNull(remote, ['unlimited_quota', 'unlimited', 'is_unlimited', 'infinite_quota'])
   if (explicit !== null) return explicit
@@ -185,6 +288,12 @@ function isUnlimitedQuota(remote: Record<string, unknown>, quotaLimit: number | 
   return quotaLimit === 0
 }
 
+/**
+ * 创建远程 Token 载荷
+ * @param tokenName - Token 名称
+ * @param group - 分组
+ * @returns 远程 Token 载荷
+ */
 function remoteTokenPayload(tokenName: string, group: string): Record<string, unknown> {
   return {
     name: tokenName,
@@ -198,6 +307,14 @@ function remoteTokenPayload(tokenName: string, group: string): Record<string, un
   }
 }
 
+/**
+ * 从远程数据创建 Token 输入
+ * @param siteId - 站点 ID
+ * @param apiType - API 类型
+ * @param remote - 远程数据
+ * @param existingFullKey - 现有完整 Key
+ * @returns Token 输入
+ */
 function tokenInputFromRemote(siteId: number, apiType: string, remote: Record<string, unknown>, existingFullKey: string | null = null): TokenInput {
   const remoteId = extractString(remote, 'id') || extractString(remote, 'token_id') || extractString(remote, 'remote_token_id') || extractString(remote, 'key')
   const rawTokenKey = extractString(remote, 'key') || extractString(remote, 'token') || extractString(remote, 'token_key') || remoteId || ''
@@ -226,6 +343,11 @@ function tokenInputFromRemote(siteId: number, apiType: string, remote: Record<st
   }
 }
 
+/**
+ * 提取远程 Token 列表
+ * @param payload - 载荷数据
+ * @returns 远程 Token 列表
+ */
 function extractRemoteTokens(payload: Record<string, unknown>): Record<string, unknown>[] {
   const data = extractDataObject(payload)
   for (const key of ['items', 'list', 'tokens', 'data', 'records', 'rows', 'result']) {
@@ -236,6 +358,7 @@ function extractRemoteTokens(payload: Record<string, unknown>): Record<string, u
   return []
 }
 
+/** Token 服务测试钩子 */
 export const __tokenServiceTestHooks = {
   extractRemoteTokenGroupNames,
   tokenListPath,
@@ -245,11 +368,21 @@ export const __tokenServiceTestHooks = {
   convertQuotaForPlatform: convertQuota
 }
 
+/**
+ * Token 服务工厂函数
+ * @param env - 环境变量
+ * @returns Token 服务对象
+ */
 export function tokenService(env: Env) {
   const sites = siteRepository(env.DB)
   const tokens = tokenRepository(env.DB)
 
   return {
+    /**
+     * 同步 Token
+     * @param siteId - 站点 ID
+     * @returns Promise<SyncTokensResult> - 同步结果
+     */
     async syncTokens(siteId: number) {
       const site = await sites.findById(siteId)
       if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
@@ -293,6 +426,11 @@ export function tokenService(env: Env) {
       }
     },
 
+    /**
+     * 批量同步 Token
+     * @param siteIds - 站点 ID 列表
+     * @returns Promise<{ results, errors }> - 同步结果和错误
+     */
     async batchSyncTokens(siteIds: number[]) {
       const results: Record<string, unknown> = {}
       const errors: Record<string, string> = {}
@@ -306,16 +444,32 @@ export function tokenService(env: Env) {
       return { results, errors }
     },
 
+    /**
+     * 获取 Token 列表
+     * @param siteId - 站点 ID
+     * @returns Promise<ApiSiteToken[]> - Token 列表
+     */
     async getTokens(siteId: number) {
       return tokens.findBySiteId(siteId)
     },
 
+    /**
+     * 获取 Token 值
+     * @param tokenId - Token ID
+     * @returns Promise<{ id, token_key }> - Token 信息
+     */
     async getTokenValue(tokenId: number): Promise<{ id: number; token_key: string }> {
       const token = await tokens.findById(tokenId)
       if (!token) throw new ApiHttpError('NOT_FOUND', 'Token 不存在', 404)
       return { id: tokenId, token_key: token.token_key }
     },
 
+    /**
+     * 创建远程 Token
+     * @param siteId - 站点 ID
+     * @param tokenName - Token 名称
+     * @param group - 分组
+     */
     async createRemoteToken(siteId: number, tokenName: string, group: string): Promise<void> {
       const site = await sites.findById(siteId)
       if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
@@ -324,6 +478,11 @@ export function tokenService(env: Env) {
       await this.syncTokens(siteId)
     },
 
+    /**
+     * 删除远程 Token
+     * @param siteId - 站点 ID
+     * @param remoteTokenId - 远程 Token ID
+     */
     async deleteRemoteToken(siteId: number, remoteTokenId: string): Promise<void> {
       const site = await sites.findById(siteId)
       if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
@@ -342,6 +501,11 @@ export function tokenService(env: Env) {
       await this.syncTokens(siteId)
     },
 
+    /**
+     * 获取远程 Token 分组
+     * @param siteId - 站点 ID
+     * @returns Promise<{ groups: string[] }> - 分组列表
+     */
     async getRemoteTokenGroups(siteId: number): Promise<{ groups: string[] }> {
       const site = await sites.findById(siteId)
       if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)

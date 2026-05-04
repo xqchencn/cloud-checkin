@@ -2,28 +2,57 @@ import { ApiHttpError } from '../response'
 import type { ApiSite } from '../types'
 import { getUserIdHeaders, requiresUserId } from './site-types'
 
+/**
+ * 远程响应接口
+ */
 export interface RemoteResponse<T = Record<string, unknown>> {
+  /** 响应数据 */
   data: T
+  /** 响应时间（毫秒） */
   responseTimeMs: number
+  /** HTTP 状态码 */
   status: number
+  /** 响应头 */
   headers: Headers
 }
 
+/**
+ * 运行时认证凭证
+ */
 interface RuntimeAuthCredential {
+  /** Token */
   token?: string
+  /** Cookie */
   cookie?: string
 }
 
+/**
+ * 延迟函数
+ * @param ms - 毫秒数
+ * @returns Promise<void>
+ */
 export function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/**
+ * 判断是否应该重试错误
+ * @param error - 错误对象
+ * @returns 是否应该重试
+ */
 export function shouldRetryError(error: unknown): boolean {
   if (error instanceof ApiHttpError) return error.status >= 500
   const message = error instanceof Error ? error.message : String(error)
   return /internal error|database is locked|SQLITE_BUSY|network|timeout|fetch failed/i.test(message)
 }
 
+/**
+ * 带重试的异步函数执行
+ * @param fn - 要执行的函数
+ * @param retries - 重试次数，默认为 2
+ * @param delayMs - 延迟毫秒数，默认为 700
+ * @returns Promise<T> - 执行结果
+ */
 export async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 700): Promise<T> {
   let lastError: unknown
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -38,29 +67,63 @@ export async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 
   throw lastError
 }
 
+/**
+ * 规范化 URL
+ * @param rawUrl - 原始 URL
+ * @returns 规范化后的 URL
+ */
 export function normalizeUrl(rawUrl: string): string {
   return rawUrl.trim().replace(/\/+$/, '')
 }
 
+/**
+ * 判断是否为完整 URL
+ * @param value - 输入值
+ * @returns 是否为完整 URL
+ */
 export function isFullUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim())
 }
 
+/**
+ * 构建 API 端点
+ * @param baseUrl - 基础 URL
+ * @param path - 路径
+ * @returns 完整的 API 端点
+ */
 export function buildApiEndpoint(baseUrl: string, path: string): string {
   if (isFullUrl(path)) return path.trim()
   return `${normalizeUrl(baseUrl)}/${path.replace(/^\/+/, '')}`
 }
 
+/**
+ * 提取字符串值
+ * @param data - 数据对象
+ * @param field - 字段名
+ * @returns 字符串值或 null
+ */
 export function extractString(data: Record<string, unknown>, field: string): string | null {
   const value = data[field]
   if (value === undefined || value === null) return null
   return String(value)
 }
 
+/**
+ * 提取数字值
+ * @param data - 数据对象
+ * @param field - 字段名
+ * @returns 数字值
+ */
 export function extractNumber(data: Record<string, unknown>, field: string): number {
   return extractOptionalNumber(data, field) ?? 0
 }
 
+/**
+ * 提取可选数字值
+ * @param data - 数据对象
+ * @param field - 字段名
+ * @returns 数字值或 null
+ */
 export function extractOptionalNumber(data: Record<string, unknown>, field: string): number | null {
   if (!(field in data)) return null
   const value = data[field]
@@ -73,6 +136,12 @@ export function extractOptionalNumber(data: Record<string, unknown>, field: stri
   return null
 }
 
+/**
+ * 提取布尔值
+ * @param data - 数据对象
+ * @param field - 字段名
+ * @returns 布尔值或 null
+ */
 export function extractBoolean(data: Record<string, unknown>, field: string): boolean | null {
   const value = data[field]
   if (typeof value === 'boolean') return value
@@ -81,17 +150,33 @@ export function extractBoolean(data: Record<string, unknown>, field: string): bo
   return null
 }
 
+/**
+ * 获取嵌套对象
+ * @param data - 数据对象
+ * @param field - 字段名
+ * @returns 嵌套对象或 null
+ */
 export function getNestedObject(data: Record<string, unknown>, field: string): Record<string, unknown> | null {
   const value = data[field]
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
 
+/**
+ * 提取数据对象
+ * @param data - 数据对象
+ * @returns 数据对象
+ */
 export function extractDataObject(data: Record<string, unknown>): Record<string, unknown> {
   const nested = getNestedObject(data, 'data')
   const result = getNestedObject(data, 'result')
   return nested ?? result ?? data
 }
 
+/**
+ * 判断是否为成功响应
+ * @param data - 数据对象
+ * @returns 是否成功
+ */
 export function isSuccessResponse(data: Record<string, unknown>): boolean {
   if (typeof data.success === 'boolean') return data.success
   if (typeof data.status === 'string') return ['success', 'ok'].includes(data.status.toLowerCase())
@@ -99,10 +184,23 @@ export function isSuccessResponse(data: Record<string, unknown>): boolean {
   return true
 }
 
+/**
+ * 获取远程消息
+ * @param data - 数据对象
+ * @returns 消息字符串
+ */
 export function getRemoteMessage(data: Record<string, unknown>): string {
   return extractString(data, 'message') || extractString(data, 'msg') || JSON.stringify(data)
 }
 
+/**
+ * 构建认证请求头
+ * @param site - 站点信息
+ * @param sessions - 会话字符串
+ * @param cookies - Cookie 字符串
+ * @param runtimeAuth - 运行时认证凭证
+ * @returns 请求头对象
+ */
 export function buildAuthHeaders(site: ApiSite, sessions = '', cookies = '', runtimeAuth: RuntimeAuthCredential | null = null): Headers {
   const headers = new Headers()
   headers.set('accept', 'application/json, text/plain, */*')
@@ -143,12 +241,22 @@ export function buildAuthHeaders(site: ApiSite, sessions = '', cookies = '', run
   return headers
 }
 
+/**
+ * 设置 Bearer 认证
+ * @param headers - 请求头对象
+ * @param value - Token 值
+ */
 function setBearerAuthorization(headers: Headers, value: string): void {
   const token = value.trim()
   if (!token) return
   headers.set('authorization', token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`)
 }
 
+/**
+ * 解析会话认证值
+ * @param value - 认证值字符串
+ * @returns Token 和 Cookie 对象或 null
+ */
 function parseSessionAuthValue(value: string): { token: string; cookie: string } | null {
   try {
     const parsed = JSON.parse(value) as Record<string, unknown>
@@ -161,6 +269,11 @@ function parseSessionAuthValue(value: string): { token: string; cookie: string }
   }
 }
 
+/**
+ * 从 AnyRouter 密码认证值中提取凭证
+ * @param value - 认证值字符串
+ * @returns 运行时认证凭证
+ */
 function credentialFromAnyRouterPasswordAuthValue(value: string): RuntimeAuthCredential {
   const trimmed = value.trim()
   if (!trimmed) return {}
@@ -169,10 +282,21 @@ function credentialFromAnyRouterPasswordAuthValue(value: string): RuntimeAuthCre
   return { token: trimmed }
 }
 
+/**
+ * 判断是否为 Cookie 认证值
+ * @param value - 输入值
+ * @returns 是否为 Cookie 认证值
+ */
 function looksLikeCookieAuthValue(value: string): boolean {
   return value.split(';').some(part => /^[^=;\s]+\s*=/.test(part.trim()))
 }
 
+/**
+ * 合并 Cookie 字符串
+ * @param left - 左侧 Cookie 字符串
+ * @param right - 右侧 Cookie 字符串
+ * @returns 合并后的 Cookie 字符串
+ */
 export function mergeCookieStrings(left: string, right: string): string {
   const map = new Map<string, string>()
   for (const source of [left, right]) {
@@ -294,6 +418,12 @@ async function loginAnyRouterPassword(site: ApiSite, cookies = ''): Promise<Runt
   throw new ApiHttpError('REMOTE_LOGIN_FAILED', 'AnyRouter 登录成功但未返回可用 token 或 cookie', 502)
 }
 
+/**
+ * API 请求函数
+ * @param input - 请求信息
+ * @param init - 请求初始化选项
+ * @returns Promise<RemoteResponse<T>> - 远程响应
+ */
 export async function apiRequest<T = Record<string, unknown>>(input: RequestInfo, init: RequestInit = {}): Promise<RemoteResponse<T>> {
   const started = Date.now()
   let response: Response
@@ -327,6 +457,16 @@ export async function apiRequest<T = Record<string, unknown>>(input: RequestInfo
   }
 }
 
+/**
+ * 使用站点信息发起请求
+ * @param site - 站点信息
+ * @param method - HTTP 方法
+ * @param url - 请求 URL
+ * @param body - 请求体
+ * @param sessions - 会话字符串
+ * @param cookies - Cookie 字符串
+ * @returns Promise<RemoteResponse<T>> - 远程响应
+ */
 export async function requestWithSite<T = Record<string, unknown>>(
   site: ApiSite,
   method: string,
@@ -361,6 +501,11 @@ export async function requestWithSite<T = Record<string, unknown>>(
   return sendAndMaybeRelogin(runtimeAuth)
 }
 
+/**
+ * 获取站点 Cookie
+ * @param siteUrl - 站点 URL
+ * @returns Promise<string> - Cookie 字符串
+ */
 export async function getSiteCookies(siteUrl: string): Promise<string> {
   // 有些站点要求先访问首页或静态资源拿基础 cookie，后续 API 请求才会放行。
   const candidates = [buildApiEndpoint(siteUrl, '/logo.png'), normalizeUrl(siteUrl)]

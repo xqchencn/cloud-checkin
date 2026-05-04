@@ -3,6 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { apiSiteSource, appChromeSource, appSource, entryAppSource, logCardsSource, npmrcSource, siteDetailDrawerSource, siteDetailTokenListSource, siteListViewSource, stylesSource } from '../sources'
 
+/**
+ * App 前端布局和安全合约测试
+ * 验证前端应用布局和安全的一致性
+ */
 describe('App frontend layout and safety contracts', () => {
   it('keeps App.tsx as a small application entry instead of a page implementation dump', () => {
     expect(entryAppSource.split(/\r?\n/).length).toBeLessThanOrEqual(300)

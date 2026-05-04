@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { appSource, siteDetailTokenListSource as tokenListSource } from '../sources'
 
+/**
+ * 采用前端完成度合约测试
+ * 验证前端采用功能的完整性和一致性
+ */
 describe('adoption frontend completion contracts', () => {
   const remoteEditText = ['编辑', '远端'].join('')
 

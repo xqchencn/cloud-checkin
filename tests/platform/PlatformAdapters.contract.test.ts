@@ -4,6 +4,10 @@ import { quotaConversionFactor } from '../../worker/src/services/balance-service
 import { getPlatformAdapter, listPlatformAdapters } from '../../worker/src/services/platforms/index'
 import { getEndpointCandidates, getEndpointCheckin, getEndpointModels, getSiteTypeConfig, getUserIdHeader, getUserIdHeaders, supportsCheckin } from '../../worker/src/services/site-types'
 
+/**
+ * 平台适配器合约测试
+ * 验证平台适配器的一致性和正确性
+ */
 describe('platform adapter contracts', () => {
   it('exposes every current site type through the adapter registry', () => {
     const adapters = listPlatformAdapters()

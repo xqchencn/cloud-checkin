@@ -1,23 +1,45 @@
 import { all, boolToInt, intToBool, nowIso, one } from '../db'
 import type { ApiSiteToken } from '../types'
 
+/**
+ * Token 输入接口
+ */
 export interface TokenInput {
+  /** 站点 ID */
   api_site_id: number
+  /** 远程 Token ID */
   remote_token_id: string | null
+  /** Token 键 */
   token_key: string
+  /** Token 值状态 */
   value_status?: ApiSiteToken['value_status']
+  /** Token 名称 */
   token_name: string | null
+  /** Token 分组 */
   token_group: string
+  /** 来源 */
   source?: string
+  /** 是否激活 */
   is_active: number
+  /** Token 配额 */
   token_quota: number | null
+  /** Token 已用配额 */
   token_used_quota: number | null
+  /** Token 无限配额 */
   token_unlimited_quota: boolean
+  /** 创建时间 */
   created_time?: string | null
+  /** 访问时间 */
   accessed_time?: string | null
+  /** 过期时间 */
   expired_time?: string | null
 }
 
+/**
+ * 将数据库行转换为 Token 对象
+ * @param row - 数据库行
+ * @returns Token 对象
+ */
 function toToken(row: Record<string, unknown>): ApiSiteToken {
   return {
     id: Number(row.id),
@@ -41,6 +63,12 @@ function toToken(row: Record<string, unknown>): ApiSiteToken {
   }
 }
 
+/**
+ * 查找现有的 Token 用于更新
+ * @param db - D1 数据库
+ * @param input - Token 输入
+ * @returns Promise<ApiSiteToken | null> - 现有 Token 或 null
+ */
 async function findExistingTokenForUpsert(db: D1Database, input: TokenInput): Promise<ApiSiteToken | null> {
   if (input.remote_token_id) {
     const row = await one<Record<string, unknown>>(db.prepare('SELECT * FROM api_site_tokens WHERE api_site_id = ? AND remote_token_id = ? LIMIT 1').bind(input.api_site_id, input.remote_token_id))
@@ -51,18 +79,37 @@ async function findExistingTokenForUpsert(db: D1Database, input: TokenInput): Pr
   return row ? toToken(row) : null
 }
 
+/**
+ * Token 仓库工厂函数
+ * @param db - D1 数据库
+ * @returns Token 仓库对象
+ */
 export function tokenRepository(db: D1Database) {
   return {
+    /**
+     * 按站点 ID 查找 Token
+     * @param siteId - 站点 ID
+     * @returns Promise<ApiSiteToken[]> - Token 列表
+     */
     async findBySiteId(siteId: number): Promise<ApiSiteToken[]> {
       const rows = await all<Record<string, unknown>>(db.prepare('SELECT * FROM api_site_tokens WHERE api_site_id = ? ORDER BY id DESC').bind(siteId))
       return rows.map(toToken)
     },
 
+    /**
+     * 按 ID 查找 Token
+     * @param id - Token ID
+     * @returns Promise<ApiSiteToken | null> - Token 或 null
+     */
     async findById(id: number): Promise<ApiSiteToken | null> {
       const row = await one<Record<string, unknown>>(db.prepare('SELECT * FROM api_site_tokens WHERE id = ?').bind(id))
       return row ? toToken(row) : null
     },
 
+    /**
+     * 更新或插入 Token
+     * @param input - Token 输入
+     */
     async upsert(input: TokenInput): Promise<void> {
       const existing = await findExistingTokenForUpsert(db, input)
       const now = nowIso()
@@ -122,10 +169,20 @@ export function tokenRepository(db: D1Database) {
       ).run()
     },
 
+    /**
+     * 删除 Token
+     * @param tokenId - Token ID
+     */
     async delete(tokenId: number): Promise<void> {
       await db.prepare('DELETE FROM api_site_tokens WHERE id = ?').bind(tokenId).run()
     },
 
+    /**
+     * 删除缺失的 Token
+     * @param siteId - 站点 ID
+     * @param remoteIds - 远程 ID 列表
+     * @returns Promise<number> - 删除数量
+     */
     async deleteMissing(siteId: number, remoteIds: string[]): Promise<number> {
       const tokens = await this.findBySiteId(siteId)
       let deleted = 0

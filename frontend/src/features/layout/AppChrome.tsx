@@ -4,6 +4,31 @@ import type { PageKey } from '../../shared/types'
 import { formatMoney } from '../../shared/format'
 import { BrandMark, ButtonIcon } from '../../shared/ui'
 
+/**
+ * 应用程序外壳组件
+ * @param activePage - 活动页面
+ * @param pageMeta - 页面元数据
+ * @param navItems - 导航项
+ * @param sidebarCollapsed - 侧边栏是否折叠
+ * @param totalBalance - 总余额
+ * @param usedBalance - 已用余额
+ * @param query - 查询关键词
+ * @param filterLabel - 筛选标签
+ * @param urlAggregatedView - URL 聚合视图
+ * @param loading - 是否加载中
+ * @param children - 子元素
+ * @param onToggleSidebar - 切换侧边栏回调
+ * @param onNavigatePage - 导航页面回调
+ * @param onRequestLogout - 请求登出回调
+ * @param onOpenCreate - 打开创建回调
+ * @param onQueryChange - 查询变更回调
+ * @param onRefresh - 刷新回调
+ * @param onToggleUrlAggregated - 切换 URL 聚合视图回调
+ * @param onToggleFilterMenu - 切换筛选菜单回调
+ * @param onToggleActionMenu - 切换操作菜单回调
+ * @param renderFilterMenu - 渲染筛选菜单函数
+ * @param renderActionMenu - 渲染操作菜单函数
+ */
 export function AppChrome({
   activePage,
   pageMeta,

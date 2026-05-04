@@ -7,6 +7,14 @@ import { normalizeFormSortOrder } from '../../shared/format'
 import type { SiteFormState } from '../../shared/types'
 import { ButtonIcon, DialogCard, ModalShell } from '../../shared/ui'
 
+/**
+ * 站点表单模态框组件
+ * @param site - 站点对象
+ * @param open - 是否打开
+ * @param saving - 是否正在保存
+ * @param onClose - 关闭回调
+ * @param onSaved - 保存成功回调
+ */
 export function SiteFormModal({ site, open, saving, onClose, onSaved }: {
   site: ApiSite | null
   open: boolean
@@ -21,6 +29,9 @@ export function SiteFormModal({ site, open, saving, onClose, onSaved }: {
   const [apiTypeTouched, setApiTypeTouched] = useState(false)
   const [showLoginPassword, setShowLoginPassword] = useState(false)
 
+  /**
+   * 初始化表单数据
+   */
   useEffect(() => {
     if (!open) return
     setError('')

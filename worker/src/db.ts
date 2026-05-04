@@ -1,33 +1,67 @@
 import type { ApiSite, ApiSiteInput, ApiSiteModel } from './types'
 
+/**
+ * 布尔值转整数
+ * @param value - 布尔值
+ * @returns 整数 (1 或 0)
+ */
 export function boolToInt(value: boolean): number {
   return value ? 1 : 0
 }
 
+/**
+ * 整数转布尔值
+ * @param value - 整数或布尔值
+ * @returns 布尔值
+ */
 export function intToBool(value: unknown): boolean {
   return value === 1 || value === true
 }
 
+/**
+ * 获取当前时间的 ISO 格式字符串
+ * @returns ISO 格式的时间字符串
+ */
 export function nowIso(): string {
   return new Date().toISOString()
 }
 
+/**
+ * 查询单条记录
+ * @param stmt - D1 预处理语句
+ * @returns Promise<T | null> - 查询结果或 null
+ */
 export async function one<T>(stmt: D1PreparedStatement): Promise<T | null> {
   const row = await stmt.first<T>()
   return row ?? null
 }
 
+/**
+ * 查询多条记录
+ * @param stmt - D1 预处理语句
+ * @returns Promise<T[]> - 查询结果数组
+ */
 export async function all<T>(stmt: D1PreparedStatement): Promise<T[]> {
   const result = await stmt.all<T>()
   return (result.results ?? []) as T[]
 }
 
+/**
+ * 将值转换为可空字符串
+ * @param value - 输入值
+ * @returns 可空字符串
+ */
 export function nullable(value: unknown): string | null {
   if (value === undefined || value === null) return null
   const text = String(value).trim()
   return text === '' ? null : text
 }
 
+/**
+ * 将数据库行转换为 ApiSite 对象
+ * @param row - 数据库行
+ * @returns ApiSite 对象
+ */
 export function toApiSite(row: Record<string, unknown>): ApiSite {
   return {
     id: Number(row.id),
@@ -64,6 +98,11 @@ export function toApiSite(row: Record<string, unknown>): ApiSite {
   }
 }
 
+/**
+ * 将站点输入转换为数据库参数
+ * @param input - 站点输入
+ * @returns 数据库参数数组
+ */
 export function siteInputParams(input: ApiSiteInput): unknown[] {
   return [
     input.name.trim(),
@@ -83,6 +122,11 @@ export function siteInputParams(input: ApiSiteInput): unknown[] {
   ]
 }
 
+/**
+ * 将数据库行转换为 ApiSiteModel 对象
+ * @param row - 数据库行
+ * @returns ApiSiteModel 对象
+ */
 export function toApiSiteModel(row: Record<string, unknown>): ApiSiteModel {
   return {
     id: Number(row.id),
@@ -94,6 +138,12 @@ export function toApiSiteModel(row: Record<string, unknown>): ApiSiteModel {
   }
 }
 
+/**
+ * 构建分页参数
+ * @param page - 页码，默认为 1
+ * @param pageSize - 每页数量，默认为 20
+ * @returns 分页参数对象
+ */
 export function buildLimitOffset(page = 1, pageSize = 20): { limit: number; offset: number; page: number; pageSize: number } {
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1
   const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(Math.floor(pageSize), 200) : 20

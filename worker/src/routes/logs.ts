@@ -4,6 +4,13 @@ import { jsonError, jsonOk } from '../response'
 import { getShanghaiDateString } from '../services/scheduler-service'
 import type { Env } from '../types'
 
+/**
+ * 处理日志相关路由
+ * @param request - HTTP 请求
+ * @param env - 环境变量
+ * @param ctx - 执行上下文
+ * @returns Promise<Response> - HTTP 响应
+ */
 export async function handleLogRoutes(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url)
 

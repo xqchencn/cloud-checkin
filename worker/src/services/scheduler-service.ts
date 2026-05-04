@@ -8,9 +8,16 @@ import { checkinService } from './checkin-service'
 import { settingsService } from './settings-service'
 import { tokenService } from './token-service'
 
+/** 站点间隔毫秒数 */
 const SITE_INTERVAL_MS = 1000
+/** 任务间隔毫秒数 */
 const TASK_INTERVAL_MS = 500
 
+/**
+ * 获取上海日期字符串
+ * @param date - 日期对象
+ * @returns 上海日期字符串
+ */
 export function getShanghaiDateString(date: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Shanghai',
@@ -20,10 +27,23 @@ export function getShanghaiDateString(date: Date): string {
   }).format(date)
 }
 
+/**
+ * 延迟函数
+ * @param ms - 毫秒数
+ * @returns Promise<void>
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/**
+ * 记录任务
+ * @param env - 环境变量
+ * @param site - 站点信息
+ * @param logDate - 日志日期
+ * @param taskType - 任务类型
+ * @param fn - 任务函数
+ */
 async function recordTask(env: Env, site: ApiSite, logDate: string, taskType: 'checkin' | 'sync_token' | 'query_balance', fn: () => Promise<unknown>): Promise<void> {
   const logs = taskLogRepository(env.DB)
   let status: TaskStatus = 'success'
@@ -40,6 +60,11 @@ async function recordTask(env: Env, site: ApiSite, logDate: string, taskType: 'c
   await logs.insertTask(site.id, logDate, taskType, status, message, error)
 }
 
+/**
+ * 清理旧日志
+ * @param env - 环境变量
+ * @returns Promise<CleanupResult> - 清理结果
+ */
 export async function cleanupOldLogs(env: Env): Promise<{ retention_days: number; deleted_checkin_logs: number; deleted_task_logs: number }> {
   const retentionDays = (await settingsService(env).getRuntimeSettings()).logs.retention_days
   const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString()
@@ -54,6 +79,11 @@ export async function cleanupOldLogs(env: Env): Promise<{ retention_days: number
   }
 }
 
+/**
+ * 运行签到任务周期
+ * @param env - 环境变量
+ * @param source - 任务来源
+ */
 export async function runCheckinTaskCycle(env: Env, source: 'scheduled' | 'manual' = 'scheduled'): Promise<void> {
   const sites = await siteRepository(env.DB).findEnabled()
   const logDate = getShanghaiDateString(new Date())
@@ -76,6 +106,11 @@ export async function runCheckinTaskCycle(env: Env, source: 'scheduled' | 'manua
   }
 }
 
+/**
+ * 运行定时任务
+ * @param env - 环境变量
+ * @param event - 定时任务事件
+ */
 export async function runScheduledEvent(
   env: Env,
   event: {

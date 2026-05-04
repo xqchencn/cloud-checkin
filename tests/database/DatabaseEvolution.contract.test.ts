@@ -1,12 +1,19 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+/**
+ * 数据库演进合约测试
+ * 验证数据库结构演进的一致性和正确性
+ */
 const schemaSource = readFileSync('migrations/0001_api_site_tables.sql', 'utf8')
 const typesSource = readFileSync('worker/src/types.ts', 'utf8')
 const dbSource = readFileSync('worker/src/db.ts', 'utf8')
 const tokenRepositorySource = readFileSync('worker/src/repositories/token-repository.ts', 'utf8')
 const readmeSource = readFileSync('README.md', 'utf8')
 
+/**
+ * 数据库演进合约测试套件
+ */
 describe('adoption database evolution contracts', () => {
   const defaultColumnName = ['is', 'default'].join('_')
 

@@ -1,52 +1,91 @@
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react'
 import { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from 'react'
 
+/**
+ * Toast 提示类型
+ */
 type ToastTone = 'success' | 'error' | 'info'
 
+/**
+ * Toast 项目接口
+ */
 type ToastItem = {
   id: number
   tone: ToastTone
   text: string
 }
 
+/**
+ * Toast 选项接口
+ */
 type ToastOptions = {
   durationMs?: number
 }
 
+/**
+ * Toast API 接口
+ */
 type ToastApi = {
   success: (text: string, options?: ToastOptions) => void
   error: (text: string, options?: ToastOptions) => void
   info: (text: string, options?: ToastOptions) => void
 }
 
+/**
+ * Toast 上下文
+ */
 const ToastContext = createContext<ToastApi | null>(null)
 
+/**
+ * Toast 样式类映射
+ */
 const toneClasses: Record<ToastTone, string> = {
   success: 'border-emerald-100 bg-emerald-50 text-emerald-800',
   error: 'border-red-100 bg-red-50 text-red-800',
   info: 'border-blue-100 bg-blue-50 text-blue-800'
 }
 
+/**
+ * Toast 图标样式类映射
+ */
 const iconClasses: Record<ToastTone, string> = {
   success: 'text-emerald-600',
   error: 'text-red-600',
   info: 'text-blue-600'
 }
 
+/**
+ * Toast 图标组件
+ * @param tone - Toast 类型
+ */
 function ToastIcon({ tone }: { tone: ToastTone }) {
   if (tone === 'success') return <CheckCircle2 className={iconClasses[tone]} size={18} />
   if (tone === 'error') return <AlertTriangle className={iconClasses[tone]} size={18} />
   return <Info className={iconClasses[tone]} size={18} />
 }
 
+/**
+ * Toast 提供者组件
+ * @param children - 子组件
+ */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([])
   const nextId = useRef(1)
 
+  /**
+   * 移除 Toast
+   * @param id - Toast ID
+   */
   const remove = useCallback((id: number) => {
     setItems(current => current.filter(item => item.id !== id))
   }, [])
 
+  /**
+   * 添加 Toast
+   * @param tone - Toast 类型
+   * @param text - Toast 文本
+   * @param options - Toast 选项
+   */
   const push = useCallback((tone: ToastTone, text: string, options: ToastOptions = {}) => {
     const id = nextId.current++
     const item = { id, tone, text }
@@ -54,6 +93,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => remove(id), options.durationMs ?? (tone === 'error' ? 6000 : 3500))
   }, [remove])
 
+  /**
+   * Toast API
+   */
   const api = useMemo<ToastApi>(() => ({
     success: (text, options) => push('success', text, options),
     error: (text, options) => push('error', text, options),
@@ -87,6 +129,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * 使用 Toast Hook
+ * @returns Toast API
+ */
 export function useToast(): ToastApi {
   const context = useContext(ToastContext)
   if (!context) throw new Error('useToast must be used inside ToastProvider')

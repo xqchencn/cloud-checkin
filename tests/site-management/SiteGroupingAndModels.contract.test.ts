@@ -9,7 +9,15 @@ const modelRouteSource = readFileSync('worker/src/routes/models.ts', 'utf8')
 const apiSource = readFileSync('frontend/src/api/apiSite.ts', 'utf8')
 import { appSource } from '../sources'
 
+/**
+ * 相同 URL 站点聚合合约测试
+ * 验证相同 URL 站点的聚合功能
+ */
 describe('same-url site aggregation contracts', () => {
+  /**
+   * 验证保持 api_sites 作为凭据实例同时聚合相同 URL 记录
+   * 测试相同 URL 站点的聚合逻辑
+   */
   it('keeps api_sites as credential instances while aggregating same-url records', () => {
     expect(siteServiceSource).toContain('async grouped')
     expect(siteServiceSource).toContain('const groupKey = site.url')
@@ -31,7 +39,15 @@ describe('same-url site aggregation contracts', () => {
   })
 })
 
+/**
+ * 模型视图合约测试
+ * 验证模型视图功能的正确性和一致性
+ */
 describe('model view contracts', () => {
+  /**
+   * 验证仅保持模型列表和单站点刷新用于站点管理
+   * 测试模型管理功能
+   */
   it('keeps only model list and single-site refresh for site management', () => {
     expect(modelServiceSource).toContain('async refreshModels')
     expect(modelServiceSource).toContain('async getModels')

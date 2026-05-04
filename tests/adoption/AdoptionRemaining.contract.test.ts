@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+/**
+ * 采用剩余完成度合约测试
+ * 验证采用剩余功能的完整性和一致性
+ */
 const docSource = readFileSync('docs/site-management-adoption-analysis.md', 'utf8')
 const apiSiteSource = readFileSync('frontend/src/api/apiSite.ts', 'utf8')
 const siteRouteSource = readFileSync('worker/src/routes/sites.ts', 'utf8')
@@ -14,6 +18,9 @@ const typesSource = readFileSync('worker/src/types.ts', 'utf8')
 const checkinLogRepositorySource = readFileSync('worker/src/repositories/checkin-log-repository.ts', 'utf8')
 const checkinServiceSource = readFileSync('worker/src/services/checkin-service.ts', 'utf8')
 
+/**
+ * 采用剩余完成度合约测试套件
+ */
 describe('adoption remaining completion contracts', () => {
   const forbiddenDefaultLabel = ['默认', ' Token'].join('')
   const defaultActionText = ['设', '为', '默认'].join('')

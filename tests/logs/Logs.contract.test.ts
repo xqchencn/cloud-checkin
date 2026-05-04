@@ -10,6 +10,10 @@ import {
   toastSource
 } from '../sources'
 
+/**
+ * 日志和通知合约测试
+ * 验证日志和通知功能的一致性和正确性
+ */
 describe('Log and notification contracts', () => {
   it('labels scheduled task logs separately from existing manual actions and keeps task logs paginated', () => {
     expect(appSource).toContain('定时任务日志')

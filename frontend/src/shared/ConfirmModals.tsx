@@ -3,6 +3,13 @@ import { AlertTriangle, CheckCircle2, LogOut } from 'lucide-react'
 import type { ConfirmAction } from './types'
 import { ButtonIcon, DialogCard, ModalShell } from './ui'
 
+/**
+ * 退出登录确认模态框组件
+ * @param open - 是否打开
+ * @param loading - 是否正在加载
+ * @param onClose - 关闭回调
+ * @param onConfirm - 确认回调
+ */
 export function LogoutConfirmModal({ open, loading, onClose, onConfirm }: {
   open: boolean
   loading: boolean
@@ -32,6 +39,12 @@ export function LogoutConfirmModal({ open, loading, onClose, onConfirm }: {
   )
 }
 
+/**
+ * 操作确认模态框组件
+ * @param action - 确认操作
+ * @param onClose - 关闭回调
+ * @param onConfirm - 确认回调
+ */
 export function ActionConfirmModal({ action, onClose, onConfirm }: {
   action: ConfirmAction | null
   onClose: () => void

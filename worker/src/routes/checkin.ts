@@ -5,13 +5,29 @@ import { tokenService } from '../services/token-service'
 import { jsonError, jsonOk, readJson } from '../response'
 import type { Env } from '../types'
 
+/**
+ * 从 URL 路径中提取 ID
+ * @param pathname - URL 路径
+ * @param pattern - 正则表达式模式
+ * @returns number | null - 提取的 ID 或 null
+ */
 function idFrom(pathname: string, pattern: RegExp): number | null {
   const match = pathname.match(pattern)
   return match ? Number(match[1]) : null
 }
 
+/**
+ * 批量操作请求体类型
+ */
 type BatchBody = { site_ids?: number[] }
 
+/**
+ * 处理签到相关路由
+ * @param request - HTTP 请求
+ * @param env - 环境变量
+ * @param _ctx - 执行上下文
+ * @returns Promise<Response> - HTTP 响应
+ */
 export async function handleCheckinRoutes(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url)
   const checkins = checkinService(env)

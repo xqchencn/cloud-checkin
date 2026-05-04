@@ -8,7 +8,7 @@
     "dev": "node scripts/local-scheduled-dev.mjs",
     "predev:frontend": "npm run sync:wrangler-crons",
     "dev:frontend": "vite --config frontend/vite.config.ts",
-    "cron:local": "curl \"http://localhost:8787/__scheduled?cron=1,32+*+*+*+*\"",
+    "cron:local": "curl \"http://localhost:8787/__scheduled?cron=0+%2A%2F2+*+*+*\"",
     "cron:cleanup:local": "curl \"http://localhost:8787/__scheduled?cron=0+17+*+*+*\"",
     "prebuild": "npm run sync:wrangler-crons",
     "build": "vite build --config frontend/vite.config.ts",

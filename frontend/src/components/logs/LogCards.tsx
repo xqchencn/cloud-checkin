@@ -3,6 +3,13 @@ import { formatCheckinBalance, formatCheckinReward, formatCheckinType, formatDat
 import { JsonMessagePreview } from '../../shared/JsonMessagePreview'
 import { ToneBadge } from '../../shared/ui'
 
+/**
+ * 日志移动端卡片组件
+ * @param tab - 标签页类型
+ * @param checkinLogs - 签到日志列表
+ * @param taskLogs - 任务日志列表
+ * @param showSiteName - 是否显示站点名称
+ */
 export function LogMobileCards({ tab, checkinLogs, taskLogs, showSiteName = true }: {
   tab: 'checkin' | 'task'
   checkinLogs: CheckinLog[]
@@ -24,6 +31,11 @@ export function LogMobileCards({ tab, checkinLogs, taskLogs, showSiteName = true
   )
 }
 
+/**
+ * 签到日志卡片组件
+ * @param log - 签到日志
+ * @param showSiteName - 是否显示站点名称
+ */
 function CheckinLogCard({ log, showSiteName }: { log: CheckinLog; showSiteName: boolean }) {
   const title = showSiteName ? log.site_name || `#${log.api_site_id ?? '-'}` : formatDate(log.checkin_time)
   const subtitle = showSiteName ? formatDate(log.checkin_time) : formatCheckinType(log.checkin_type)
@@ -60,6 +72,11 @@ function CheckinLogCard({ log, showSiteName }: { log: CheckinLog; showSiteName: 
   )
 }
 
+/**
+ * 任务日志卡片组件
+ * @param log - 任务日志
+ * @param showSiteName - 是否显示站点名称
+ */
 function TaskLogCard({ log, showSiteName }: { log: TaskLog; showSiteName: boolean }) {
   const title = showSiteName ? log.site_name || `#${log.api_site_id ?? '-'}` : log.log_date
   const subtitle = showSiteName ? log.log_date : formatDate(log.exec_time)

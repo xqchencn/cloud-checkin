@@ -7,15 +7,32 @@ import { balanceService } from './balance-service'
 import { getPlatformAdapter } from './platforms'
 import { getEndpointCandidates, supportsCheckin } from './site-types'
 
+/**
+ * 判断是否已签到
+ * @param message - 消息内容
+ * @returns 是否已签到
+ */
 function alreadyCheckedIn(message: string): boolean {
   const lower = message.toLowerCase()
   return ['已签到', '今日已签', 'already checked in', 'already signed', 'duplicate'].some(keyword => lower.includes(keyword.toLowerCase()))
 }
 
+/**
+ * 转换配额
+ * @param remoteQuota - 远程配额
+ * @param apiType - API 类型
+ * @returns 转换后的配额
+ */
 function convertQuota(remoteQuota: number, apiType: string): number {
   return remoteQuota / (getPlatformAdapter(apiType)?.balance.quotaFactor ?? 500000)
 }
 
+/**
+ * 获取第一个数字值
+ * @param data - 数据对象
+ * @param fields - 字段列表
+ * @returns 数字值或 null
+ */
 function firstNumber(data: Record<string, unknown>, fields: string[]): number | null {
   for (const field of fields) {
     const value = extractOptionalNumber(data, field)
@@ -24,6 +41,10 @@ function firstNumber(data: Record<string, unknown>, fields: string[]): number | 
   return null
 }
 
+/**
+ * 获取当前月份
+ * @returns 当前月份字符串
+ */
 function currentMonth(): string {
   const parts = new Intl.DateTimeFormat('en', {
     timeZone: 'Asia/Shanghai',
@@ -35,6 +56,11 @@ function currentMonth(): string {
   return `${year}-${month}`
 }
 
+/**
+ * 从消息中提取奖励金额
+ * @param message - 消息内容
+ * @returns 奖励金额
+ */
 function extractRewardAmountFromMessage(message: string): number {
   const patterns = [
     /\$(\d+\.?\d*)/,
@@ -55,12 +81,25 @@ function extractRewardAmountFromMessage(message: string): number {
   return 0
 }
 
+/**
+ * 判断是否已签到数据
+ * @param data - 数据对象
+ * @param message - 消息内容
+ * @returns 是否已签到
+ */
 function isAlreadyCheckedInData(data: Record<string, unknown>, message: string): boolean {
   const rawMessage = data.message ?? data.msg
   if (rawMessage === undefined || rawMessage === null || String(rawMessage).trim() === '') return true
   return alreadyCheckedIn(String(rawMessage)) || alreadyCheckedIn(message)
 }
 
+/**
+ * 创建失败结果
+ * @param siteId - 站点 ID
+ * @param message - 消息
+ * @param checkinTime - 签到时间
+ * @returns 签到结果
+ */
 function failedResult(siteId: number, message: string, checkinTime = new Date().toISOString()): CheckinResult {
   return {
     api_site_id: siteId,
@@ -74,6 +113,14 @@ function failedResult(siteId: number, message: string, checkinTime = new Date().
   }
 }
 
+/**
+ * 创建跳过结果
+ * @param siteId - 站点 ID
+ * @param message - 消息
+ * @param currentBalance - 当前余额
+ * @param checkinTime - 签到时间
+ * @returns 签到结果
+ */
 function skippedResult(siteId: number, message: string, currentBalance = 0, checkinTime = new Date().toISOString()): CheckinResult {
   return {
     api_site_id: siteId,
@@ -87,6 +134,12 @@ function skippedResult(siteId: number, message: string, currentBalance = 0, chec
   }
 }
 
+/**
+ * 构建签到诊断信息
+ * @param site - 站点信息
+ * @param result - 签到结果
+ * @returns 诊断信息
+ */
 function buildCheckinDiagnostics(site: ApiSite, result: CheckinResult) {
   const failed = result.status === 'failed' || result.status === 'error'
   const skipped = result.status === 'skipped' || result.status === 'already_checked_in'
@@ -98,6 +151,11 @@ function buildCheckinDiagnostics(site: ApiSite, result: CheckinResult) {
   }
 }
 
+/**
+ * 构建签到端点
+ * @param site - 站点信息
+ * @returns 签到端点
+ */
 export function buildCheckinEndpoint(site: ApiSite): string {
   // 支持单站点覆盖签到端点；未配置时走站点类型注册表里的默认端点。
   const custom = site.checkin_endpoint?.trim()
@@ -106,16 +164,31 @@ export function buildCheckinEndpoint(site: ApiSite): string {
   return endpoint ? buildApiEndpoint(site.url, endpoint) : ''
 }
 
+/**
+ * 获取签到端点候选列表
+ * @param apiType - API 类型
+ * @returns 签到端点候选列表
+ */
 export function checkinEndpointCandidates(apiType: string): string[] {
   return getEndpointCandidates(apiType, 'checkin')
 }
 
+/**
+ * 构建签到端点列表
+ * @param site - 站点信息
+ * @returns 签到端点列表
+ */
 export function buildCheckinEndpoints(site: ApiSite): string[] {
   const custom = site.checkin_endpoint?.trim()
   if (custom) return [isFullUrl(custom) ? custom : buildApiEndpoint(site.url, custom)]
   return checkinEndpointCandidates(site.api_type).map(endpoint => buildApiEndpoint(site.url, endpoint))
 }
 
+/**
+ * 判断是否应该尝试下一个签到端点
+ * @param message - 消息内容
+ * @returns 是否应该尝试下一个端点
+ */
 function shouldTryNextCheckinEndpoint(message: string): boolean {
   const lower = message.toLowerCase()
   return [
@@ -128,15 +201,27 @@ function shouldTryNextCheckinEndpoint(message: string): boolean {
   ].some(keyword => lower.includes(keyword))
 }
 
+/** 签到服务测试钩子 */
 export const __checkinServiceTestHooks = {
   checkinEndpointCandidates,
   extractRewardAmountFromMessage
 }
 
+/**
+ * 签到服务工厂函数
+ * @param env - 环境变量
+ * @returns 签到服务对象
+ */
 export function checkinService(env: Env) {
   const sites = siteRepository(env.DB)
   const logs = checkinLogRepository(env.DB)
 
+  /**
+   * 记录并存储签到结果
+   * @param site - 站点信息
+   * @param result - 签到结果
+   * @param checkinType - 签到类型
+   */
   async function logAndStore(site: ApiSite, result: CheckinResult, checkinType: string): Promise<void> {
     await sites.updateFields(site.id, {
       last_checkin: result.checkin_time,
@@ -157,6 +242,11 @@ export function checkinService(env: Env) {
     })
   }
 
+  /**
+   * 检查远程签到状态
+   * @param site - 站点信息
+   * @returns 远程签到状态
+   */
   async function checkRemoteCheckinStatus(site: ApiSite): Promise<'continue' | 'already_checked_in' | 'disabled'> {
     // 仅 NewApi 且未配置自定义端点时，先 GET 查询远程签到状态。
     if (site.api_type !== 'NewApi' || site.checkin_endpoint?.trim()) return 'continue'
@@ -189,6 +279,12 @@ export function checkinService(env: Env) {
     }
   }
 
+  /**
+   * 执行签到
+   * @param siteId - 站点 ID
+   * @param checkinType - 签到类型
+   * @returns Promise<CheckinResult> - 签到结果
+   */
   async function checkin(siteId: number, checkinType: string): Promise<CheckinResult> {
     const site = await sites.findById(siteId)
     if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
@@ -239,7 +335,7 @@ export function checkinService(env: Env) {
         const response = await requestWithSite<Record<string, unknown>>(site, 'POST', endpoint, body, '', cookies)
         const data = extractDataObject(response.data)
         const message = getRemoteMessage(response.data)
-        // 各类 New API 分支返回格式不完全一致，这里同时看 success/code/status 和文案里的“已签到”。
+        // 各类 New API 分支返回格式不完全一致，这里同时看 success/code/status 和文案里的”已签到”。
         const isAlready = isAlreadyCheckedInData(data, message) || alreadyCheckedIn(JSON.stringify(data))
         const ok = isSuccessResponse(response.data) || isAlready
         const rewardRaw = firstNumber(data, ['reward', 'amount', 'quota_awarded'])
@@ -305,6 +401,12 @@ export function checkinService(env: Env) {
   return {
     checkin,
 
+    /**
+     * 批量签到
+     * @param siteIds - 站点 ID 列表
+     * @param checkinType - 签到类型
+     * @returns Promise<BatchCheckinResult> - 批量签到结果
+     */
     async batchCheckin(siteIds: number[], checkinType = 'manual') {
       const started = Date.now()
       const results: CheckinResult[] = []
@@ -333,6 +435,10 @@ export function checkinService(env: Env) {
       }
     },
 
+    /**
+     * 签到所有自动签到站点
+     * @returns Promise<BatchCheckinResult> - 批量签到结果
+     */
     async checkinAllAutoSites() {
       const autoSites = await sites.findAutoCheckin()
       return this.batchCheckin(autoSites.map(site => site.id), 'scheduled')

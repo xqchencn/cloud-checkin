@@ -2,12 +2,25 @@ import type { ReactNode } from 'react'
 import { Cloud, X } from 'lucide-react'
 import type { ApiSite } from '../api/apiSite'
 
+/**
+ * 徽章颜色主题类型
+ */
 export type BadgeTone = 'success' | 'warning' | 'danger' | 'muted' | 'info'
 
+/**
+ * 状态徽章组件
+ * @param enabled - 是否启用
+ * @param children - 子元素
+ */
 export function StatusBadge({ enabled, children }: { enabled: boolean; children: string }) {
   return <span className={`badge ${enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{children}</span>
 }
 
+/**
+ * 颜色主题徽章组件
+ * @param tone - 颜色主题
+ * @param children - 子元素
+ */
 export function ToneBadge({ tone, children }: { tone: BadgeTone; children: string }) {
   const classes: Record<BadgeTone, string> = {
     success: 'bg-emerald-50 text-emerald-700',
@@ -19,10 +32,18 @@ export function ToneBadge({ tone, children }: { tone: BadgeTone; children: strin
   return <span className={`badge ${classes[tone]}`}>{children}</span>
 }
 
+/**
+ * 按钮图标组件
+ * @param children - 子元素
+ */
 export function ButtonIcon({ children }: { children: ReactNode }) {
   return <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">{children}</span>
 }
 
+/**
+ * 品牌标识组件
+ * @param compact - 是否紧凑模式
+ */
 export function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-brand text-white shadow-soft ${compact ? 'h-10 w-10' : 'h-12 w-12'}`}>
@@ -31,10 +52,24 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
   )
 }
 
+/**
+ * 模态框外壳组件
+ * @param children - 子元素
+ */
 export function ModalShell({ children }: { children: ReactNode }) {
   return <div className="modal-shell">{children}</div>
 }
 
+/**
+ * 对话框卡片组件
+ * @param title - 标题
+ * @param description - 描述
+ * @param icon - 图标
+ * @param onClose - 关闭回调
+ * @param children - 子元素
+ * @param footer - 页脚
+ * @param size - 大小
+ */
 export function DialogCard({
   title,
   description,
@@ -76,6 +111,10 @@ export function DialogCard({
   )
 }
 
+/**
+ * 站点头像组件
+ * @param site - 站点对象
+ */
 export function SiteAvatar({ site }: { site: ApiSite }) {
   return (
     <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
@@ -84,6 +123,10 @@ export function SiteAvatar({ site }: { site: ApiSite }) {
   )
 }
 
+/**
+ * 详情网格组件
+ * @param items - 详情项数组
+ */
 export function DetailGrid({ items }: { items: Array<[string, ReactNode]> }) {
   return (
     <dl className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-3">

@@ -6,6 +6,11 @@ import { ButtonIcon, ToneBadge } from '../../shared/ui'
 import { coerceSettingPayloadValue, formatSettingDescription, normalizeAppSettings } from '../../shared/settings'
 import { useToast } from '../../toast'
 
+/**
+ * 设置页面组件
+ * @param onOpenLogs - 打开日志回调
+ * @param onLogoutNow - 立即登出回调
+ */
 export function SettingsPage({ onOpenLogs, onLogoutNow }: {
   onOpenLogs: () => void
   onLogoutNow: () => void
@@ -19,6 +24,9 @@ export function SettingsPage({ onOpenLogs, onLogoutNow }: {
   const [error, setError] = useState('')
   const toast = useToast()
 
+  /**
+   * 加载设置
+   */
   const loadSettings = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -31,6 +39,9 @@ export function SettingsPage({ onOpenLogs, onLogoutNow }: {
     }
   }, [])
 
+  /**
+   * 初始化加载设置
+   */
   useEffect(() => {
     void loadSettings()
   }, [loadSettings])
@@ -55,6 +66,11 @@ export function SettingsPage({ onOpenLogs, onLogoutNow }: {
     })).sort((left, right) => left.sort_order - right.sort_order)
   }, [settings])
 
+  /**
+   * 更新设置项
+   * @param key - 设置键
+   * @param value - 设置值
+   */
   function updateSettingItem(key: string, value: string) {
     // 前端始终维护字符串态，提交时再按元数据类型转换，避免输入中途被数字/布尔格式打断。
     setSettings(current => current ? {
@@ -63,6 +79,10 @@ export function SettingsPage({ onOpenLogs, onLogoutNow }: {
     } : current)
   }
 
+  /**
+   * 保存设置
+   * @param event - 表单事件
+   */
   async function saveSettings(event: FormEvent) {
     event.preventDefault()
     if (!settings) return
@@ -86,6 +106,10 @@ export function SettingsPage({ onOpenLogs, onLogoutNow }: {
     }
   }
 
+  /**
+   * 保存密码
+   * @param event - 表单事件
+   */
   async function savePassword(event: FormEvent) {
     event.preventDefault()
     setPasswordSaving(true)

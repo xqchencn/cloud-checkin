@@ -1,17 +1,42 @@
 import { all, buildLimitOffset, nowIso, one } from '../db'
 import type { Paginated, TaskLogDisplay } from '../types'
 
+/**
+ * 任务类型定义
+ */
 export type TaskType = 'checkin' | 'sync_token' | 'query_balance'
+
+/**
+ * 任务状态定义
+ */
 export type TaskStatus = 'success' | 'failed' | 'pending'
 
+/**
+ * 任务列映射配置
+ * 定义不同任务类型对应的数据库列名
+ */
 const taskColumns: Record<TaskType, { status: string; time: string; message: string; error: string }> = {
   checkin: { status: 'checkin_status', time: 'checkin_time', message: 'checkin_message', error: 'checkin_error' },
   sync_token: { status: 'sync_token_status', time: 'sync_token_time', message: 'sync_token_message', error: 'sync_token_error' },
   query_balance: { status: 'query_balance_status', time: 'query_balance_time', message: 'query_balance_message', error: 'query_balance_error' }
 }
 
+/**
+ * 任务日志仓库工厂函数
+ * @param db - D1 数据库
+ * @returns 任务日志仓库对象
+ */
 export function taskLogRepository(db: D1Database) {
   return {
+    /**
+     * 插入任务日志
+     * @param siteId - 站点 ID
+     * @param logDate - 日志日期
+     * @param taskType - 任务类型
+     * @param status - 任务状态
+     * @param message - 任务消息
+     * @param error - 错误信息
+     */
     async insertTask(siteId: number, logDate: string, taskType: TaskType, status: TaskStatus, message: string, error: string): Promise<void> {
       const columns = taskColumns[taskType]
       await db.prepare(`
@@ -21,6 +46,11 @@ export function taskLogRepository(db: D1Database) {
       `).bind(siteId, logDate, status, nowIso(), message, error || null, nowIso(), nowIso()).run()
     },
 
+    /**
+     * 分页查询任务日志
+     * @param params - 查询参数
+     * @returns Promise<Paginated<TaskLogDisplay>> - 分页结果
+     */
     async paginate(params: { siteId?: number; taskType?: string; status?: string; page?: number; pageSize?: number }): Promise<Paginated<TaskLogDisplay>> {
       const { limit, offset, page, pageSize } = buildLimitOffset(params.page, params.pageSize)
       const parts: string[] = []
@@ -60,6 +90,11 @@ export function taskLogRepository(db: D1Database) {
       }
     },
 
+    /**
+     * 获取今日任务状态
+     * @param logDate - 日志日期
+     * @returns Promise<Record<string, unknown>[]> - 任务状态列表
+     */
     async todayStatus(logDate: string): Promise<Record<string, unknown>[]> {
       return all<Record<string, unknown>>(db.prepare(`
         WITH latest_task_logs AS (
@@ -79,12 +114,21 @@ export function taskLogRepository(db: D1Database) {
       `).bind(logDate, logDate))
     },
 
+    /**
+     * 清空所有任务日志
+     * @returns Promise<number> - 删除数量
+     */
     async clearAll(): Promise<number> {
       const row = await one<{ count: number }>(db.prepare('SELECT COUNT(*) AS count FROM api_site_task_logs'))
       await db.prepare('DELETE FROM api_site_task_logs').run()
       return Number(row?.count ?? 0)
     },
 
+    /**
+     * 删除旧的任务日志
+     * @param cutoffIso - 截止时间
+     * @returns Promise<number> - 删除数量
+     */
     async deleteOlderThan(cutoffIso: string): Promise<number> {
       const row = await one<{ count: number }>(
         db.prepare("SELECT COUNT(*) AS count FROM api_site_task_logs WHERE datetime(created_at) < datetime(?)").bind(cutoffIso)

@@ -2,11 +2,19 @@ import { FormEvent, useState } from 'react'
 import { AuthLogin } from '../../api/apiSite'
 import { BrandMark } from '../../shared/ui'
 
+/**
+ * 登录视图组件
+ * @param onLoggedIn - 登录成功回调
+ */
 export function LoginView({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /**
+   * 提交登录表单
+   * @param event - 表单事件
+   */
   async function submit(event: FormEvent) {
     event.preventDefault()
     setError('')

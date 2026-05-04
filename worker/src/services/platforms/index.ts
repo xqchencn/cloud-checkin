@@ -1,11 +1,13 @@
 import type { PlatformAdapter } from './base'
 
+/** 默认能力配置 */
 const defaultCapabilities = {
   checkin: true,
   tokenManagement: false,
   siteDetection: true
 }
 
+/** 远程 Token 配置 */
 const remoteTokenConfig = {
   listPageSize: 100,
   createRemote: true,
@@ -13,8 +15,10 @@ const remoteTokenConfig = {
   updateRemote: false as const
 }
 
+/** New API 兼容的用户头 */
 const newApiCompatibleUserHeaders = ['New-API-User', 'new-api-user', 'User-id', 'Rix-Api-User', 'voapi-user', 'neo-api-user']
 
+/** 平台适配器注册表 */
 export const platformAdapters: Record<string, PlatformAdapter> = {
   NewApi: {
     name: 'NewApi',
@@ -162,10 +166,19 @@ export const platformAdapters: Record<string, PlatformAdapter> = {
   }
 }
 
+/**
+ * 获取平台适配器
+ * @param apiType - API 类型
+ * @returns 平台适配器或 null
+ */
 export function getPlatformAdapter(apiType: string): PlatformAdapter | null {
   return platformAdapters[apiType] ?? null
 }
 
+/**
+ * 列出所有平台适配器
+ * @returns 平台适配器数组
+ */
 export function listPlatformAdapters(): PlatformAdapter[] {
   return Object.values(platformAdapters).sort((left, right) => left.name.localeCompare(right.name))
 }

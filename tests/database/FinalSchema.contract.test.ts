@@ -1,9 +1,16 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+/**
+ * 最终本地数据库模式合约测试
+ * 验证数据库最终模式的一致性和正确性
+ */
 const migrationFiles = readdirSync('migrations').filter(file => file.endsWith('.sql'))
 const schemaSource = readFileSync('migrations/0001_api_site_tables.sql', 'utf8')
 
+/**
+ * 最终本地数据库模式合约测试套件
+ */
 describe('final local database schema contract', () => {
   const defaultColumnName = ['is', 'default'].join('_')
 

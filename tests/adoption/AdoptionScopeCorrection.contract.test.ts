@@ -1,6 +1,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+/**
+ * 采用范围修正合约测试
+ * 验证采用范围的正确性和一致性
+ */
 const appSource = readFileSync('frontend/src/App.tsx', 'utf8')
 const apiSource = readFileSync('frontend/src/api/apiSite.ts', 'utf8')
 const typesSource = readFileSync('worker/src/types.ts', 'utf8')
@@ -16,6 +20,11 @@ const cryptoPath = 'worker/src/services/credential-crypto.ts'
 const skippedPathParts = new Set(['.git', '.wrangler', 'dist', 'node_modules'])
 const forbiddenPathPatterns = [/m[e]ta[a-z]{2}/i, /m[a]tapi/i, /g[o0]\s*版/i, /g[o0]版/i, /g[o0]\s*版本/i]
 
+/**
+ * 列出项目路径
+ * @param dir - 目录路径
+ * @returns 项目路径列表
+ */
 function listProjectPaths(dir: string): string[] {
   return readdirSync(dir).flatMap(entry => {
     if (skippedPathParts.has(entry)) return []
@@ -26,6 +35,9 @@ function listProjectPaths(dir: string): string[] {
   })
 }
 
+/**
+ * 采用范围修正合约测试套件
+ */
 describe('adoption scope correction contracts', () => {
   const defaultColumnName = ['is', 'default'].join('_')
 

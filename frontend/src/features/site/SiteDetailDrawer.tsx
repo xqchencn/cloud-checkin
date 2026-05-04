@@ -9,6 +9,14 @@ import { formatDate, formatMoney, normalizeRemoteGroupOptions, siteCredentialDet
 import { SimpleTable } from '../../shared/SimpleTable'
 import { ButtonIcon, DetailGrid, SiteAvatar, ToneBadge } from '../../shared/ui'
 
+/**
+ * 站点详情抽屉组件
+ * @param site - 站点对象
+ * @param open - 是否打开
+ * @param busyKey - 忙碌键
+ * @param onClose - 关闭回调
+ * @param onAction - 操作回调
+ */
 export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
   site: ApiSite | null
   open: boolean
@@ -16,18 +24,22 @@ export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
   onClose: () => void
   onAction: (key: string, fn: () => Promise<unknown>, okMessage: string) => Promise<void>
 }) {
-  const [tab, setTab] = useState<'overview' | 'tokens' | 'models' | 'checkin' | 'tasks'>('overview')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [tokens, setTokens] = useState<ApiToken[]>([])
-  const [models, setModels] = useState<ApiModel[]>([])
-  const [checkinLogs, setCheckinLogs] = useState<CheckinLog[]>([])
-  const [taskLogs, setTaskLogs] = useState<TaskLog[]>([])
-  const [remoteGroupOptions, setRemoteGroupOptions] = useState<string[]>(['default'])
+  const [tab, setTab] = useState<'overview' | 'tokens' | 'models' | 'checkin' | 'tasks'>('overview')  // 当前选中的标签页
+  const [loading, setLoading] = useState(false)  // 加载状态
+  const [error, setError] = useState('')  // 错误信息
+  const [tokens, setTokens] = useState<ApiToken[]>([])  // 令牌列表
+  const [models, setModels] = useState<ApiModel[]>([])  // 模型列表
+  const [checkinLogs, setCheckinLogs] = useState<CheckinLog[]>([])  // 签到日志列表
+  const [taskLogs, setTaskLogs] = useState<TaskLog[]>([])  // 任务日志列表
+  const [remoteGroupOptions, setRemoteGroupOptions] = useState<string[]>(['default'])  // 远程令牌分组选项
   const [remoteGroupLoading, setRemoteGroupLoading] = useState(false)
   const [remoteGroupError, setRemoteGroupError] = useState('')
   const remoteGroupRequestId = useRef(0)
 
+  /**
+   * 加载远程分组
+   * @param siteId - 站点 ID
+   */
   const loadRemoteGroupsForSite = useCallback(async (siteId: number) => {
     const requestId = remoteGroupRequestId.current + 1
     remoteGroupRequestId.current = requestId
@@ -47,12 +59,16 @@ export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
     }
   }, [])
 
+  /**
+   * 加载标签页数据
+   */
   const loadTab = useCallback(async () => {
     if (!site) return
     setLoading(true)
     setError('')
     try {
       if (tab === 'overview') {
+        // 总览标签页：同时加载令牌和模型数据
         const [tokenRows, modelRows] = await Promise.all([
           ApiSiteGetTokens(site.id).catch(() => []),
           ApiSiteGetModels(site.id).catch(() => ({ models: [] }))
@@ -61,7 +77,10 @@ export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
         setModels(modelRows.models || [])
       }
       if (tab === 'tokens') setTokens(await ApiSiteGetTokens(site.id))
-      if (tab === 'models') setModels((await ApiSiteGetModels(site.id)).models || [])
+      if (tab === 'models') {
+        // 模型标签页：加载站点模型列表
+        setModels((await ApiSiteGetModels(site.id)).models || [])
+      }
       if (tab === 'checkin') setCheckinLogs(await ApiSiteGetCheckinLogs(site.id))
       if (tab === 'tasks') {
         const result: Paginated<TaskLog> = await ApiSiteGetTaskLogs(site.id)
@@ -74,10 +93,16 @@ export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
     }
   }, [site, tab])
 
+  /**
+   * 打开时加载标签页数据
+   */
   useEffect(() => {
     if (open) void loadTab()
   }, [open, loadTab])
 
+  /**
+   * 打开时加载远程分组
+   */
   useEffect(() => {
     if (open && site) void loadRemoteGroupsForSite(site.id)
   }, [open, site, loadRemoteGroupsForSite])
@@ -89,6 +114,12 @@ export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
     ? '当前站点类型不支持签到，下方记录为历史签到数据。'
     : '当前站点类型不支持签到，暂无可执行的签到数据。'
 
+  /**
+   * 运行详情操作
+   * @param key - 操作键
+   * @param fn - 操作函数
+   * @param okMessage - 成功消息
+   */
   async function runDetailAction(key: string, fn: () => Promise<unknown>, okMessage: string) {
     await onAction(key, fn, okMessage)
     await loadTab()
@@ -156,6 +187,7 @@ export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
           />
         ) : null}
         {tab === 'models' ? (
+          // 模型列表表格：显示站点支持的所有 AI 模型
           <SimpleTable
             headers={['模型', '类型', '启用', '创建时间']}
             rows={models.map(model => [model.model_name, model.model_type || '-', model.is_active ? '是' : '否', formatDate(model.created_at)])}
@@ -201,6 +233,12 @@ function DetailBlock({ title, children }: { title: string; children: ReactNode }
   )
 }
 
+/**
+ * 站点总览组件
+ * @param site - 站点对象
+ * @param tokenCount - 令牌数量
+ * @param modelCount - 模型数量
+ */
 function SiteOverview({ site, tokenCount, modelCount }: { site: ApiSite; tokenCount: number; modelCount: number }) {
   const checkin = getCheckinDisplay(site)
   const hasAffInfo = Boolean(site.site_aff_code || site.site_aff_count || site.site_aff_quota || site.site_aff_history_quota)

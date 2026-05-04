@@ -8,7 +8,15 @@ import { appSource as frontendSource, siteDetailTokenListSource as tokenListSour
 const apiSource = readFileSync('frontend/src/api/apiSite.ts', 'utf8')
 const typesSource = readFileSync('worker/src/types.ts', 'utf8')
 
+/**
+ * 凭据处理合约测试
+ * 验证凭据处理功能的一致性和安全性
+ */
 describe('credential handling contracts', () => {
+  /**
+   * 验证不引入隐式加密、掩码或保存的秘密占位符
+   * 确保凭据安全性功能未被意外引入
+   */
   it('does not introduce implicit encryption, masks, or saved-secret placeholders', () => {
     expect(existsSync(cryptoPath)).toBe(false)
     for (const source of [siteServiceSource, tokenServiceSource, frontendSource, tokenListSource, apiSource, typesSource]) {
@@ -22,6 +30,10 @@ describe('credential handling contracts', () => {
     }
   })
 
+  /**
+   * 验证保持令牌值检索明确且列表值可用
+   * 确保令牌值检索功能的正确性
+   */
   it('keeps token value retrieval explicit and keeps list values usable', () => {
     expect(tokenServiceSource).toContain('async getTokenValue')
     expect(tokenServiceSource).toContain('return { id: tokenId, token_key: token.token_key }')
@@ -30,6 +42,10 @@ describe('credential handling contracts', () => {
     expect(tokenListSource).toContain('复制完整密钥')
   })
 
+  /**
+   * 验证仅渲染所选认证方法所需的凭据输入
+   * 确保凭据输入表单的正确性
+   */
   it('renders only the credential inputs required by the selected auth method', () => {
     expect(frontendSource).toContain("form.auth_method === 'token'")
     expect(frontendSource).toContain('访问 Token')

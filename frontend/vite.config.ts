@@ -1,6 +1,10 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
+/**
+ * Vite 配置
+ * 前端开发服务器和构建配置
+ */
 export default defineConfig({
   root: 'frontend',
   plugins: [react()],

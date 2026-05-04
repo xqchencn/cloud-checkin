@@ -2,6 +2,13 @@ import { modelService } from '../services/model-service'
 import { jsonError, jsonOk } from '../response'
 import type { Env } from '../types'
 
+/**
+ * 处理模型相关路由
+ * @param request - HTTP 请求
+ * @param env - 环境变量
+ * @param _ctx - 执行上下文
+ * @returns Promise<Response> - HTTP 响应
+ */
 export async function handleModelRoutes(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url)
   const service = modelService(env)

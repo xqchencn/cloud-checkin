@@ -5,6 +5,31 @@ import { DeleteConfirmModal } from './SiteCards'
 import { SiteDetailDrawer } from './SiteDetailDrawer'
 import { SiteFormModal } from './SiteFormModal'
 
+/**
+ * 站点管理模态框组件
+ * @param editingSite - 正在编辑的站点
+ * @param formOpen - 表单是否打开
+ * @param saving - 是否正在保存
+ * @param detailSite - 详情站点
+ * @param busyKey - 忙碌键
+ * @param deleteSite - 要删除的站点
+ * @param deleting - 是否正在删除
+ * @param deleteConfirmName - 删除确认名称
+ * @param logoutConfirmOpen - 登出确认是否打开
+ * @param logoutSubmitting - 登出提交中
+ * @param confirmAction - 确认操作
+ * @param onCloseForm - 关闭表单回调
+ * @param onSaveSite - 保存站点回调
+ * @param onCloseDetail - 关闭详情回调
+ * @param onDetailAction - 详情操作回调
+ * @param onDeleteConfirmNameChange - 删除确认名称变更回调
+ * @param onCloseDelete - 关闭删除确认回调
+ * @param onConfirmDelete - 确认删除回调
+ * @param onCloseLogout - 关闭登出确认回调
+ * @param onConfirmLogout - 确认登出回调
+ * @param onCloseConfirmAction - 关闭确认操作回调
+ * @param onConfirmPendingAction - 确认待处理操作回调
+ */
 export function SiteManagerModals({
   editingSite,
   formOpen,

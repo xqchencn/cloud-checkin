@@ -3,6 +3,12 @@ import { CheckCircle2, CircleCheck, Database, Download, KeyRound, LogOut, Refres
 import { SITE_FILTERS } from '../../shared/constants'
 import type { ConfirmAction, SiteFilter } from '../../shared/types'
 
+/**
+ * 站点筛选菜单组件
+ * @param open - 是否打开
+ * @param filter - 当前筛选
+ * @param onSelect - 选择回调
+ */
 export function SiteFilterMenu({ open, filter, onSelect }: {
   open: boolean
   filter: SiteFilter
@@ -26,6 +32,19 @@ export function SiteFilterMenu({ open, filter, onSelect }: {
   )
 }
 
+/**
+ * 站点操作菜单组件
+ * @param open - 是否打开
+ * @param busyKey - 忙碌键
+ * @param onBatchAll - 批量全部回调
+ * @param onBatchBalance - 批量余额回调
+ * @param onBatchCheckin - 批量签到回调
+ * @param onBatchTokens - 批量 Token 回调
+ * @param onConfirmAction - 确认操作回调
+ * @param onExport - 导出回调
+ * @param onImport - 导入回调
+ * @param onLogout - 登出回调
+ */
 export function SiteActionMenu({ open, busyKey, onBatchAll, onBatchBalance, onBatchCheckin, onBatchTokens, onConfirmAction, onExport, onImport, onLogout }: {
   open: boolean
   busyKey: string
@@ -41,6 +60,10 @@ export function SiteActionMenu({ open, busyKey, onBatchAll, onBatchBalance, onBa
   if (!open) return null
   const actionClass = 'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-brand'
 
+  /**
+   * 处理导入按键事件
+   * @param event - 键盘事件
+   */
   function handleImportKeyDown(event: ReactKeyboardEvent<HTMLLabelElement>) {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()

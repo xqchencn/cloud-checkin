@@ -2,10 +2,23 @@ import { tokenService } from '../services/token-service'
 import { jsonError, jsonOk, readJson } from '../response'
 import type { Env } from '../types'
 
+/**
+ * 匹配 URL 路径模式
+ * @param pathname - URL 路径
+ * @param pattern - 正则表达式模式
+ * @returns RegExpMatchArray | null - 匹配结果或 null
+ */
 function match(pathname: string, pattern: RegExp): RegExpMatchArray | null {
   return pathname.match(pattern)
 }
 
+/**
+ * 处理 Token 相关路由
+ * @param request - HTTP 请求
+ * @param env - 环境变量
+ * @param _ctx - 执行上下文
+ * @returns Promise<Response> - HTTP 响应
+ */
 export async function handleTokenRoutes(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url)
   const service = tokenService(env)

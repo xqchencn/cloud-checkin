@@ -1,3 +1,9 @@
+/**
+ * 发送 API 请求
+ * @param path - 请求路径
+ * @param options - 请求选项
+ * @returns Promise<T> - 响应数据
+ */
 export async function apiRequest<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers)
   if (!headers.has('content-type') && options.body) {

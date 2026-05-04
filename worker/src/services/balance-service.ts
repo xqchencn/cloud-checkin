@@ -6,14 +6,31 @@ import { buildApiEndpoint, extractDataObject, extractOptionalNumber, extractStri
 import { getPlatformAdapter } from './platforms'
 import { getEndpointCandidates } from './site-types'
 
+/**
+ * 获取配额转换因子
+ * @param apiType - API 类型
+ * @returns 配额转换因子
+ */
 export function quotaConversionFactor(apiType: string): number {
   return getPlatformAdapter(apiType)?.balance.quotaFactor ?? 500000
 }
 
+/**
+ * 为平台转换配额
+ * @param remoteQuota - 远程配额
+ * @param apiType - API 类型
+ * @returns 转换后的配额
+ */
 export function convertQuotaForPlatform(remoteQuota: number, apiType: string): number {
   return remoteQuota / quotaConversionFactor(apiType)
 }
 
+/**
+ * 获取第一个数字值
+ * @param data - 数据对象
+ * @param fields - 字段列表
+ * @returns 数字值或 null
+ */
 function firstNumber(data: Record<string, unknown>, fields: string[]): number | null {
   for (const field of fields) {
     const value = extractOptionalNumber(data, field)
@@ -22,6 +39,12 @@ function firstNumber(data: Record<string, unknown>, fields: string[]): number | 
   return null
 }
 
+/**
+ * 解析余额字段
+ * @param apiType - API 类型
+ * @param data - 数据对象
+ * @returns 解析后的字段映射
+ */
 export function parseBalanceFields(apiType: string, data: Record<string, unknown>): Record<string, unknown> {
   const adapter = getPlatformAdapter(apiType)
   const fields: Record<string, unknown> = {}
@@ -57,15 +80,26 @@ export function parseBalanceFields(apiType: string, data: Record<string, unknown
   return fields
 }
 
+/** 余额服务测试钩子 */
 export const __balanceServiceTestHooks = {
   convertQuotaForPlatform,
   parseBalanceFields
 }
 
+/**
+ * 余额服务工厂函数
+ * @param env - 环境变量
+ * @returns 余额服务对象
+ */
 export function balanceService(env: Env) {
   const sites = siteRepository(env.DB)
   const tokens = tokenRepository(env.DB)
 
+  /**
+   * 查询用户信息
+   * @param siteId - 站点 ID
+   * @returns Promise<ApiSite> - 站点信息
+   */
   async function queryUserInfo(siteId: number): Promise<ApiSite> {
     const site = await sites.findById(siteId)
     if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
@@ -105,6 +139,11 @@ export function balanceService(env: Env) {
   return {
     queryUserInfo,
 
+    /**
+     * 批量查询余额
+     * @param siteIds - 站点 ID 列表
+     * @returns Promise<{ results, errors }> - 查询结果和错误
+     */
     async batchQueryBalance(siteIds: number[]): Promise<{ results: Record<string, ApiSite>; errors: Record<string, string> }> {
       const results: Record<string, ApiSite> = {}
       const errors: Record<string, string> = {}
@@ -118,6 +157,10 @@ export function balanceService(env: Env) {
       return { results, errors }
     },
 
+    /**
+     * 获取余额摘要
+     * @returns Promise<BalanceSummary> - 余额摘要
+     */
     async getBalanceSummary(): Promise<{ total_sites: number; total_quota: number; sites: Array<{ id: number; name: string; quota: number }> }> {
       const allSites = await sites.findEnabled()
       return {
@@ -127,6 +170,12 @@ export function balanceService(env: Env) {
       }
     },
 
+    /**
+     * 查询 Token 余额
+     * @param siteId - 站点 ID
+     * @param tokenId - Token ID
+     * @returns Promise<ApiSiteToken> - Token 信息
+     */
     async queryTokenBalance(siteId: number, tokenId: number) {
       const site = await sites.findById(siteId)
       const token = await tokens.findById(tokenId)

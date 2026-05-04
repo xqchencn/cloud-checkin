@@ -7,39 +7,77 @@ import type { ApiSite, ApiSiteInput, ApiSiteModel, ApiSiteToken, Env } from '../
 import { normalizeUrl } from './api-client'
 import { validateApiType } from './site-types'
 
+/**
+ * API 站点导出数据
+ */
 export interface ApiSiteExportData {
+  /** 站点名称 */
   name: string
+  /** 站点 URL */
   url: string
+  /** API 类型 */
   api_type: string
+  /** 账号标签 */
   account_label?: string
+  /** 排序顺序 */
   sort_order?: number
+  /** 认证方式 */
   auth_method: string
+  /** 认证值 */
   auth_value: string
+  /** 用户 ID */
   user_id: string
+  /** 登录用户名 */
   login_username: string
+  /** 登录密码 */
   login_password: string
+  /** 是否启用 */
   enabled: boolean
+  /** 是否自动签到 */
   auto_checkin: boolean
+  /** 备注 */
   remarks: string
+  /** 签到端点 */
   checkin_endpoint: string
+  /** Token 列表 */
   tokens?: ApiSiteToken[]
 }
 
+/**
+ * API 站点分组
+ */
 export interface ApiSiteGroup {
+  /** 分组名称 */
   name: string
+  /** 分组 URL */
   url: string
+  /** API 类型 */
   api_type: string
+  /** 总站点数 */
   total_sites: number
+  /** 启用站点数 */
   enabled_sites: number
+  /** 站点列表 */
   sites: ApiSite[]
 }
 
+/**
+ * 批量按 URL 更新结果
+ */
 export interface BatchUpdateByUrlResult {
+  /** 匹配数量 */
   matched_count: number
+  /** 更新数量 */
   updated_count: number
+  /** 站点 ID 列表 */
   site_ids: number[]
 }
 
+/**
+ * 规范化输入
+ * @param input - 部分站点输入
+ * @returns 规范化后的站点输入
+ */
 function normalizeInput(input: Partial<ApiSiteInput>): ApiSiteInput {
   const normalizedUrl = normalizeUrl(String(input.url || ''))
   return {
@@ -60,6 +98,12 @@ function normalizeInput(input: Partial<ApiSiteInput>): ApiSiteInput {
   }
 }
 
+/**
+ * 解析布尔值
+ * @param input - 输入值
+ * @param defaultValue - 默认值
+ * @returns 布尔值
+ */
 function parseBoolean(input: unknown, defaultValue: boolean): boolean {
   if (input === undefined || input === null || input === '') return defaultValue
   if (typeof input === 'boolean') return input
@@ -70,12 +114,22 @@ function parseBoolean(input: unknown, defaultValue: boolean): boolean {
   return defaultValue
 }
 
+/**
+ * 规范化排序顺序
+ * @param input - 输入值
+ * @returns 排序顺序
+ */
 function normalizeSortOrder(input: unknown): number {
   if (input === undefined || input === null || input === '') return 0
   const parsed = Number.parseInt(String(input), 10)
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0
 }
 
+/**
+ * 规范化签到端点
+ * @param input - 输入值
+ * @returns 规范化后的签到端点
+ */
 function normalizeCheckinEndpoint(input: unknown): string {
   if (input === undefined || input === null) return ''
   const trimmed = String(input).trim()
@@ -93,6 +147,10 @@ function normalizeCheckinEndpoint(input: unknown): string {
   return parsed.toString().replace(/\/+$/, '')
 }
 
+/**
+ * 验证输入
+ * @param input - 站点输入
+ */
 function validateInput(input: ApiSiteInput): void {
   if (!input.name) throw new ApiHttpError('VALIDATION_ERROR', '站点名称不能为空')
   if (!input.url) throw new ApiHttpError('VALIDATION_ERROR', '站点 URL 不能为空')
@@ -106,6 +164,11 @@ function validateInput(input: ApiSiteInput): void {
   if (!['token', 'sessions', 'password'].includes(input.auth_method)) throw new ApiHttpError('VALIDATION_ERROR', '认证方式必须是 token、sessions 或 password')
 }
 
+/**
+ * 转换为 ISO 时间
+ * @param value - 输入值
+ * @returns ISO 时间字符串或 null
+ */
 function toIsoTime(value: unknown): string | null {
   if (!value) return null
   if (typeof value === 'string') {
@@ -121,6 +184,12 @@ function toIsoTime(value: unknown): string | null {
   return null
 }
 
+/**
+ * 从导入数据创建 Token 输入
+ * @param siteId - 站点 ID
+ * @param token - Token 数据
+ * @returns Token 输入或 null
+ */
 function tokenInputFromImport(siteId: number, token: Partial<ApiSiteToken>): TokenInput | null {
   const tokenKey = String(token.token_key || '').trim()
   if (!isImportableTokenKey(tokenKey)) return null
@@ -142,25 +211,52 @@ function tokenInputFromImport(siteId: number, token: Partial<ApiSiteToken>): Tok
   }
 }
 
+/**
+ * 判断是否可导入的 Token 键
+ * @param tokenKey - Token 键
+ * @returns 是否可导入
+ */
 function isImportableTokenKey(tokenKey: string): boolean {
   if (!tokenKey) return false
   if (tokenKey.includes('****')) return false
   return true
 }
 
+/**
+ * 导入站点输入
+ * @param row - 导出数据行
+ * @returns 站点输入
+ */
 function importSiteInput(row: ApiSiteExportData): ApiSiteInput {
   return normalizeInput(row as Partial<ApiSiteInput>)
 }
 
+/**
+ * 站点服务工厂函数
+ * @param env - 环境变量
+ * @returns 站点服务对象
+ */
 export function siteService(env: Env) {
   const repo = siteRepository(env.DB)
   const tokens = tokenRepository(env.DB)
   const models = modelRepository(env.DB)
 
+  /**
+   * 为存储准备 Token 输入
+   * @param siteId - 站点 ID
+   * @param token - Token 数据
+   * @returns Promise<TokenInput | null> - Token 输入或 null
+   */
   async function tokenInputFromImportForStorage(siteId: number, token: Partial<ApiSiteToken>): Promise<TokenInput | null> {
     return tokenInputFromImport(siteId, token)
   }
 
+  /**
+   * 查找导入目标站点
+   * @param row - 导出数据行
+   * @param input - 站点输入
+   * @returns Promise<ApiSite | null> - 站点或 null
+   */
   async function findImportTargetSite(row: ApiSiteExportData, input: ApiSiteInput): Promise<ApiSite | null> {
     const hasAccountLabel = Object.prototype.hasOwnProperty.call(row, 'account_label')
     return hasAccountLabel
@@ -169,6 +265,11 @@ export function siteService(env: Env) {
   }
 
   return {
+    /**
+     * 创建站点
+     * @param inputLike - 部分站点输入
+     * @returns Promise<number> - 站点 ID
+     */
     async create(inputLike: Partial<ApiSiteInput>): Promise<number> {
       const input = normalizeInput(inputLike)
       validateInput(input)
@@ -178,6 +279,11 @@ export function siteService(env: Env) {
       return repo.create(input)
     },
 
+    /**
+     * 更新站点
+     * @param id - 站点 ID
+     * @param inputLike - 部分站点输入
+     */
     async update(id: number, inputLike: Partial<ApiSiteInput>): Promise<void> {
       const current = await repo.findById(id)
       if (!current) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
@@ -189,26 +295,47 @@ export function siteService(env: Env) {
       await repo.update(id, input)
     },
 
+    /**
+     * 删除站点
+     * @param id - 站点 ID
+     */
     async delete(id: number): Promise<void> {
       const current = await repo.findById(id)
       if (!current) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
       await repo.delete(id)
     },
 
+    /**
+     * 获取站点
+     * @param id - 站点 ID
+     * @returns Promise<ApiSite> - 站点信息
+     */
     async get(id: number): Promise<ApiSite> {
       const site = await repo.findById(id)
       if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
       return site
     },
 
+    /**
+     * 列出所有站点
+     * @returns Promise<ApiSite[]> - 站点列表
+     */
     async list(): Promise<ApiSite[]> {
       return repo.findAll()
     },
 
+    /**
+     * 列出启用的站点
+     * @returns Promise<ApiSite[]> - 启用站点列表
+     */
     async listEnabled(): Promise<ApiSite[]> {
       return repo.findEnabled()
     },
 
+    /**
+     * 获取站点统计信息
+     * @returns Promise<Record<string, number>> - 统计信息
+     */
     async statistics(): Promise<Record<string, number>> {
       const base = await repo.getStatistics()
       return {
@@ -219,6 +346,12 @@ export function siteService(env: Env) {
       }
     },
 
+    /**
+     * 导出站点
+     * @param sites - 站点列表
+     * @param includeSensitive - 是否包含敏感信息
+     * @returns Promise<ApiSiteExportData[]> - 导出数据
+     */
     async export(sites: ApiSite[], includeSensitive = false): Promise<ApiSiteExportData[]> {
       const shouldIncludeSensitive = includeSensitive === true
       const sourceSites = shouldIncludeSensitive ? await repo.findAll() : sites
@@ -244,6 +377,11 @@ export function siteService(env: Env) {
       }))
     },
 
+    /**
+     * 导入站点
+     * @param jsonData - JSON 数据
+     * @returns Promise<ImportResult> - 导入结果
+     */
     async import(jsonData: string): Promise<{ success_count: number; skip_count: number; fail_count: number; errors: string[]; skipped_urls: string[] }> {
       const rows = JSON.parse(jsonData) as ApiSiteExportData[]
       const result = { success_count: 0, skip_count: 0, fail_count: 0, errors: [] as string[], skipped_urls: [] as string[] }
@@ -273,6 +411,11 @@ export function siteService(env: Env) {
       return result
     },
 
+    /**
+     * 按 URL 匹配站点
+     * @param url - URL
+     * @returns Promise<{ sites: Array<{ site, tokens, models }> }> - 匹配结果
+     */
     async matchByUrl(url: string): Promise<{ sites: Array<{ site: ApiSite; tokens: ApiSiteToken[]; models: ApiSiteModel[] }> }> {
       const sites = await repo.findByUrlLike(normalizeUrl(url))
       return {
@@ -284,6 +427,11 @@ export function siteService(env: Env) {
       }
     },
 
+    /**
+     * 批量按 URL 更新
+     * @param inputLike - 输入数据
+     * @returns Promise<BatchUpdateByUrlResult> - 更新结果
+     */
     async batchUpdateByUrl(inputLike: Record<string, unknown>): Promise<BatchUpdateByUrlResult> {
       const rawUrl = String(inputLike.url || '').trim()
       if (!rawUrl) throw new ApiHttpError('VALIDATION_ERROR', '必须提供 url')
@@ -305,6 +453,11 @@ export function siteService(env: Env) {
       return { matched_count: targetSites.length, updated_count: Object.keys(fields).length ? targetSites.length : 0, site_ids: siteIds }
     },
 
+    /**
+     * 重绑认证
+     * @param id - 站点 ID
+     * @param inputLike - 部分站点输入
+     */
     async rebindAuth(id: number, inputLike: Partial<ApiSiteInput>): Promise<void> {
       const current = await repo.findById(id)
       if (!current) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
@@ -329,6 +482,10 @@ export function siteService(env: Env) {
       await repo.update(id, input)
     },
 
+    /**
+     * 分组站点
+     * @returns Promise<ApiSiteGroup[]> - 分组列表
+     */
     async grouped(): Promise<ApiSiteGroup[]> {
       const groups = new Map<string, ApiSiteGroup>()
       for (const site of await repo.findAll()) {
