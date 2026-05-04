@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { existsSync } from 'node:fs'
-import { localScheduledDevSource, packageSource, readmeSource, viteConfigSource } from './sources'
+import { localScheduledDevSource, packageSource, readmeSource, viteConfigSource } from '../sources'
 
 describe('Local scheduled task contracts', () => {
   it('runs local scheduled triggers automatically from npm run dev', () => {

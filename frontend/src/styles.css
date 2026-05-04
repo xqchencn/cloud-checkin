@@ -166,7 +166,11 @@ textarea {
   }
 
   .drawer-shell {
-    @apply fixed inset-y-0 right-0 z-40 flex w-full max-w-5xl flex-col border-l border-line bg-white shadow-panel;
+    @apply fixed inset-0 z-40 flex justify-center bg-slate-950/20 p-0 sm:items-stretch sm:justify-end;
+  }
+
+  .drawer-panel {
+    @apply flex h-full w-full max-w-5xl flex-col bg-white shadow-panel sm:border-l sm:border-line;
   }
 
   .page-section {

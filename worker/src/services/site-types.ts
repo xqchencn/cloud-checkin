@@ -1,164 +1,107 @@
+import { getPlatformAdapter, listPlatformAdapters, platformAdapters } from './platforms/index'
+
+type EndpointCandidateKey = 'userInfo' | 'models' | 'checkin' | 'tokens' | 'tokenGroups'
+
 export interface SiteTypeConfig {
   name: string
   displayName: string
   supportsCheckin: boolean
   supportsUserGroup?: boolean
+  supportsTokenManagement?: boolean
+  supportsSiteDetection?: boolean
   requiresUserId: boolean
   userIdHeader: string
+  userIdHeaders: string[]
   endpointUserInfo: string
   endpointModels: string
   endpointCheckin: string
   endpointLog?: string
   endpointRedeem?: string
   endpointTokens?: string
-  modelsParseStrategy: 'array' | 'object'
+  endpointTokenGroups?: string
+  modelsParseStrategy: 'array' | 'object' | 'openai'
 }
 
-export const siteTypeRegistry: Record<string, SiteTypeConfig> = {
-  NewApi: {
-    name: 'NewApi',
-    displayName: 'New API',
-    supportsCheckin: true,
-    requiresUserId: true,
-    userIdHeader: 'new-api-user',
-    endpointUserInfo: '/api/user/info',
-    endpointModels: '/api/user/models',
-    endpointCheckin: '/api/user/checkin',
-    endpointLog: '/console/log',
-    endpointRedeem: '/console/topup',
-    modelsParseStrategy: 'array'
-  },
-  OneApi: {
-    name: 'OneApi',
-    displayName: 'One API',
-    supportsCheckin: true,
-    requiresUserId: false,
-    userIdHeader: '',
-    endpointUserInfo: '/api/user/self',
-    endpointModels: '/api/user/models',
-    endpointCheckin: '/api/user/checkin',
-    endpointLog: '/console/log',
-    endpointRedeem: '/console/topup',
-    modelsParseStrategy: 'array'
-  },
-  OneHub: {
-    name: 'OneHub',
-    displayName: 'One Hub',
-    supportsCheckin: true,
-    supportsUserGroup: true,
-    requiresUserId: false,
-    userIdHeader: '',
-    endpointUserInfo: '/api/user/info',
-    endpointModels: '/api/available_model',
-    endpointCheckin: '/api/user/checkin',
-    endpointLog: '/panel/log',
-    endpointRedeem: '/panel/topup',
-    endpointTokens: '/api/token/',
-    modelsParseStrategy: 'object'
-  },
-  RixApi: {
-    name: 'RixApi',
-    displayName: 'Rix API',
-    supportsCheckin: true,
-    requiresUserId: true,
-    userIdHeader: 'Rix-Api-User',
-    endpointUserInfo: '/api/user/self',
-    endpointModels: '/api/user/models',
-    endpointCheckin: '/panel',
-    endpointLog: '/log',
-    endpointRedeem: '/topup',
-    modelsParseStrategy: 'array'
-  },
-  Veloera: {
-    name: 'Veloera',
-    displayName: 'Veloera',
-    supportsCheckin: true,
-    requiresUserId: true,
-    userIdHeader: 'veloera-user',
-    endpointUserInfo: '/api/user/info',
-    endpointModels: '/api/user/models',
-    endpointCheckin: '/api/user/check_in',
-    endpointLog: '/console/log',
-    endpointRedeem: '/console/topup',
-    modelsParseStrategy: 'array'
-  },
-  AnyRouter: {
-    name: 'AnyRouter',
-    displayName: 'Any Router',
-    supportsCheckin: true,
-    requiresUserId: true,
-    userIdHeader: 'new-api-user',
-    endpointUserInfo: '/api/user/info',
-    endpointModels: '/api/user/models',
-    endpointCheckin: '/api/user/sign_in',
-    endpointLog: '/console/log',
-    endpointRedeem: '/console/topup',
-    modelsParseStrategy: 'array'
-  },
-  VoApi: {
-    name: 'VoApi',
-    displayName: 'VoAPI',
-    supportsCheckin: true,
-    requiresUserId: true,
-    userIdHeader: 'voapi-user',
-    endpointUserInfo: '/api/user/self',
-    endpointModels: '/api/user/models',
-    endpointCheckin: '/api/user/clock_in',
-    endpointLog: '/console/log',
-    endpointRedeem: '/wallet',
-    modelsParseStrategy: 'array'
-  },
-  DoneHub: {
-    name: 'DoneHub',
-    displayName: 'Done Hub',
-    supportsCheckin: false,
-    requiresUserId: false,
-    userIdHeader: '',
-    endpointUserInfo: '/api/user/info',
-    endpointModels: '/api/available_model',
-    endpointCheckin: '',
-    endpointLog: '/console/log',
-    endpointRedeem: '/console/topup',
-    modelsParseStrategy: 'object'
+function adapterToSiteTypeConfig(apiType: string): SiteTypeConfig | null {
+  const adapter = getPlatformAdapter(apiType)
+  if (!adapter) return null
+  return {
+    name: adapter.name,
+    displayName: adapter.displayName,
+    supportsCheckin: adapter.capabilities.checkin,
+    supportsUserGroup: adapter.endpoints.tokenGroups.length > 0,
+    supportsTokenManagement: adapter.capabilities.tokenManagement,
+    supportsSiteDetection: adapter.capabilities.siteDetection,
+    requiresUserId: adapter.auth.requiresUserId,
+    userIdHeader: adapter.auth.userIdHeaders[0] ?? '',
+    userIdHeaders: adapter.auth.userIdHeaders,
+    endpointUserInfo: adapter.endpoints.userInfo[0] ?? '',
+    endpointModels: adapter.endpoints.models[0] ?? '',
+    endpointCheckin: adapter.endpoints.checkin[0] ?? '',
+    endpointLog: adapter.endpoints.log,
+    endpointRedeem: adapter.endpoints.redeem,
+    endpointTokens: adapter.endpoints.tokens[0] ?? '',
+    endpointTokenGroups: adapter.endpoints.tokenGroups[0] ?? '',
+    modelsParseStrategy: adapter.modelsParseStrategy
   }
 }
 
+export const siteTypeRegistry: Record<string, SiteTypeConfig> = Object.fromEntries(
+  Object.keys(platformAdapters).map(apiType => [apiType, adapterToSiteTypeConfig(apiType)])
+) as Record<string, SiteTypeConfig>
+
 export function getSiteTypeConfig(apiType: string): SiteTypeConfig | null {
-  return siteTypeRegistry[apiType] ?? null
+  return adapterToSiteTypeConfig(apiType)
 }
 
 export function getAllSiteTypes(): string[] {
-  return Object.keys(siteTypeRegistry).sort()
+  return listPlatformAdapters().map(adapter => adapter.name)
 }
 
 export function validateApiType(apiType: string): boolean {
-  return Boolean(getSiteTypeConfig(apiType))
+  return Boolean(getPlatformAdapter(apiType))
 }
 
 export function supportsCheckin(apiType: string): boolean {
-  return Boolean(getSiteTypeConfig(apiType)?.supportsCheckin)
+  return Boolean(getPlatformAdapter(apiType)?.capabilities.checkin)
 }
 
 export function requiresUserId(apiType: string): boolean {
-  return Boolean(getSiteTypeConfig(apiType)?.requiresUserId)
+  return Boolean(getPlatformAdapter(apiType)?.auth.requiresUserId)
 }
 
 export function getUserIdHeader(apiType: string): string {
-  return getSiteTypeConfig(apiType)?.userIdHeader ?? ''
+  return getUserIdHeaders(apiType)[0] ?? ''
+}
+
+export function getUserIdHeaders(apiType: string): string[] {
+  return getPlatformAdapter(apiType)?.auth.userIdHeaders ?? []
+}
+
+export function getEndpointCandidates(apiType: string, key: EndpointCandidateKey): string[] {
+  return getPlatformAdapter(apiType)?.endpoints[key] ?? []
 }
 
 export function getEndpointUserInfo(apiType: string): string {
-  return getSiteTypeConfig(apiType)?.endpointUserInfo ?? '/api/user/info'
+  return getEndpointCandidates(apiType, 'userInfo')[0] ?? '/api/user/self'
 }
 
 export function getEndpointModels(apiType: string): string {
-  return getSiteTypeConfig(apiType)?.endpointModels ?? '/api/user/models'
+  return getEndpointCandidates(apiType, 'models')[0] ?? '/api/user/models'
 }
 
 export function getEndpointCheckin(apiType: string): string {
-  return getSiteTypeConfig(apiType)?.endpointCheckin ?? '/api/user/checkin'
+  return getEndpointCandidates(apiType, 'checkin')[0] ?? '/api/user/checkin'
 }
 
-export function getModelsParseStrategy(apiType: string): 'array' | 'object' {
-  return getSiteTypeConfig(apiType)?.modelsParseStrategy ?? 'array'
+export function getEndpointTokens(apiType: string): string {
+  return getEndpointCandidates(apiType, 'tokens')[0] ?? '/api/token/'
+}
+
+export function getEndpointTokenGroups(apiType: string): string {
+  return getEndpointCandidates(apiType, 'tokenGroups')[0] ?? '/api/user/self/groups'
+}
+
+export function getModelsParseStrategy(apiType: string): 'array' | 'object' | 'openai' {
+  return getPlatformAdapter(apiType)?.modelsParseStrategy ?? 'array'
 }

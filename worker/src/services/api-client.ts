@@ -1,12 +1,17 @@
 import { ApiHttpError } from '../response'
 import type { ApiSite } from '../types'
-import { getUserIdHeader, requiresUserId } from './site-types'
+import { getUserIdHeaders, requiresUserId } from './site-types'
 
 export interface RemoteResponse<T = Record<string, unknown>> {
   data: T
   responseTimeMs: number
   status: number
   headers: Headers
+}
+
+interface RuntimeAuthCredential {
+  token?: string
+  cookie?: string
 }
 
 export function delay(ms: number): Promise<void> {
@@ -98,7 +103,7 @@ export function getRemoteMessage(data: Record<string, unknown>): string {
   return extractString(data, 'message') || extractString(data, 'msg') || JSON.stringify(data)
 }
 
-export function buildAuthHeaders(site: ApiSite, sessions = '', cookies = ''): Headers {
+export function buildAuthHeaders(site: ApiSite, sessions = '', cookies = '', runtimeAuth: RuntimeAuthCredential | null = null): Headers {
   const headers = new Headers()
   headers.set('accept', 'application/json, text/plain, */*')
   headers.set('content-type', 'application/json')
@@ -106,28 +111,42 @@ export function buildAuthHeaders(site: ApiSite, sessions = '', cookies = ''): He
 
   const authValue = sessions || site.auth_value || ''
   if (site.auth_method === 'token' && authValue) {
-    headers.set('authorization', authValue.toLowerCase().startsWith('bearer ') ? authValue : `Bearer ${authValue}`)
+    setBearerAuthorization(headers, runtimeAuth?.token || authValue)
   } else if (site.auth_method === 'sessions' && authValue) {
     const sessionAuth = parseSessionAuthValue(authValue)
-    if (sessionAuth?.token) {
-      headers.set('authorization', sessionAuth.token.toLowerCase().startsWith('bearer ') ? sessionAuth.token : `Bearer ${sessionAuth.token}`)
-    }
-    const cookieValue = mergeCookieStrings(cookies, sessionAuth ? sessionAuth.cookie : authValue)
+    const token = runtimeAuth?.token || sessionAuth?.token || ''
+    if (token) setBearerAuthorization(headers, token)
+    const cookieValue = mergeCookieStrings(mergeCookieStrings(cookies, sessionAuth ? sessionAuth.cookie : authValue), runtimeAuth?.cookie || '')
     if (cookieValue) headers.set('cookie', cookieValue)
-  } else if (site.auth_method === 'password' && authValue) {
-    const cookieValue = mergeCookieStrings(cookies, authValue)
+  } else if (site.auth_method === 'password') {
+    // AnyRouter 的用户名密码模式是平台兼容特例：历史数据可能把登录后的 token/cookie 存在 auth_value。
+    // 其他平台不能把登录用户名或密码字段当成远端 Cookie/Token 发送。
+    const storedCredential = site.api_type === 'AnyRouter' ? credentialFromAnyRouterPasswordAuthValue(authValue) : {}
+    const token = runtimeAuth?.token || storedCredential.token || ''
+    if (token) setBearerAuthorization(headers, token)
+    const cookieValue = mergeCookieStrings(mergeCookieStrings(cookies, storedCredential.cookie || ''), runtimeAuth?.cookie || '')
     if (cookieValue) headers.set('cookie', cookieValue)
   } else if (cookies) {
-    headers.set('cookie', cookies)
+    const cookieValue = mergeCookieStrings(cookies, runtimeAuth?.cookie || '')
+    if (cookieValue) headers.set('cookie', cookieValue)
   }
 
   if (requiresUserId(site.api_type)) {
     const userId = site.user_id || site.site_username
-    const header = getUserIdHeader(site.api_type)
-    if (userId && header) headers.set(header, userId)
+    if (userId) {
+      for (const header of getUserIdHeaders(site.api_type)) {
+        if (header) headers.set(header, userId)
+      }
+    }
   }
 
   return headers
+}
+
+function setBearerAuthorization(headers: Headers, value: string): void {
+  const token = value.trim()
+  if (!token) return
+  headers.set('authorization', token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`)
 }
 
 function parseSessionAuthValue(value: string): { token: string; cookie: string } | null {
@@ -142,6 +161,18 @@ function parseSessionAuthValue(value: string): { token: string; cookie: string }
   }
 }
 
+function credentialFromAnyRouterPasswordAuthValue(value: string): RuntimeAuthCredential {
+  const trimmed = value.trim()
+  if (!trimmed) return {}
+  if (trimmed.toLowerCase().startsWith('bearer ')) return { token: trimmed }
+  if (looksLikeCookieAuthValue(trimmed)) return { cookie: trimmed }
+  return { token: trimmed }
+}
+
+function looksLikeCookieAuthValue(value: string): boolean {
+  return value.split(';').some(part => /^[^=;\s]+\s*=/.test(part.trim()))
+}
+
 export function mergeCookieStrings(left: string, right: string): string {
   const map = new Map<string, string>()
   for (const source of [left, right]) {
@@ -153,6 +184,114 @@ export function mergeCookieStrings(left: string, right: string): string {
     }
   }
   return Array.from(map.entries()).map(([key, value]) => `${key}=${value}`).join('; ')
+}
+
+function normalizeSetCookieHeader(value: string): string {
+  if (!value) return ''
+  return value
+    .split(/,(?=[^;,]+=)/)
+    .map(cookie => cookie.split(';')[0].trim())
+    .filter(Boolean)
+    .join('; ')
+}
+
+function parseJsonRecord(text: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(text) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
+  } catch {
+    return null
+  }
+}
+
+function extractLoginAccessToken(data: Record<string, unknown>): string {
+  const sources = [extractDataObject(data), data]
+  for (const source of sources) {
+    for (const field of ['token', 'access_token', 'accessToken']) {
+      const value = source[field]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
+  }
+  return ''
+}
+
+function isAnyRouterPasswordSite(site: ApiSite): boolean {
+  return site.api_type === 'AnyRouter' && site.auth_method === 'password'
+}
+
+function canLoginAnyRouterPassword(site: ApiSite): boolean {
+  return isAnyRouterPasswordSite(site) && Boolean(site.login_username?.trim()) && Boolean(site.login_password)
+}
+
+function shouldLoginAnyRouterBeforeRequest(site: ApiSite, sessions: string): boolean {
+  return canLoginAnyRouterPassword(site) && !sessions.trim() && !String(site.auth_value || '').trim()
+}
+
+function shouldReloginAnyRouterPassword(site: ApiSite, error: unknown): boolean {
+  if (!canLoginAnyRouterPassword(site)) return false
+  const message = error instanceof Error ? error.message : String(error)
+  if (error instanceof ApiHttpError && (error.status === 401 || error.status === 403)) return true
+  return isAuthExpiredMessage(message)
+}
+
+function isAuthExpiredMessage(message: string): boolean {
+  return /invalid token|token expired|access token|unauthorized|forbidden|not login|not logged|未登录|登录过期|token.*失效|认证失败|鉴权失败/i.test(message)
+}
+
+function isRecordPayload(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function shouldReloginAnyRouterPasswordResponse(site: ApiSite, response: RemoteResponse<unknown>): boolean {
+  if (!canLoginAnyRouterPassword(site) || !isRecordPayload(response.data)) return false
+  if (isSuccessResponse(response.data)) return false
+  return isAuthExpiredMessage(getRemoteMessage(response.data))
+}
+
+async function loginAnyRouterPassword(site: ApiSite, cookies = ''): Promise<RuntimeAuthCredential | null> {
+  if (!canLoginAnyRouterPassword(site)) return null
+
+  const headers = new Headers()
+  headers.set('accept', 'application/json, text/plain, */*')
+  headers.set('content-type', 'application/json')
+  headers.set('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+  headers.set('x-requested-with', 'XMLHttpRequest')
+
+  const storedCredential = credentialFromAnyRouterPasswordAuthValue(site.auth_value || '')
+  const cookieValue = mergeCookieStrings(cookies, storedCredential.cookie || '')
+  if (cookieValue) headers.set('cookie', cookieValue)
+
+  let response: Response
+  try {
+    response = await fetch(buildApiEndpoint(site.url, '/api/user/login'), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        username: site.login_username?.trim(),
+        password: site.login_password
+      })
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new ApiHttpError('REMOTE_LOGIN_FAILED', `AnyRouter 登录请求失败: ${message}`, 502)
+  }
+
+  const text = await response.text()
+  const data = parseJsonRecord(text)
+  if (!response.ok) {
+    throw new ApiHttpError('REMOTE_LOGIN_FAILED', `AnyRouter 登录失败 HTTP ${response.status}: ${text.slice(0, 300)}`, response.status)
+  }
+  if (!data || !isSuccessResponse(data)) {
+    throw new ApiHttpError('REMOTE_LOGIN_FAILED', `AnyRouter 登录失败: ${data ? getRemoteMessage(data) : text.slice(0, 300)}`, 502)
+  }
+
+  const token = extractLoginAccessToken(data)
+  if (token) return { token }
+
+  const cookie = normalizeSetCookieHeader(response.headers.get('set-cookie') || '')
+  if (cookie) return { cookie }
+
+  throw new ApiHttpError('REMOTE_LOGIN_FAILED', 'AnyRouter 登录成功但未返回可用 token 或 cookie', 502)
 }
 
 export async function apiRequest<T = Record<string, unknown>>(input: RequestInfo, init: RequestInit = {}): Promise<RemoteResponse<T>> {
@@ -196,11 +335,30 @@ export async function requestWithSite<T = Record<string, unknown>>(
   sessions = '',
   cookies = ''
 ): Promise<RemoteResponse<T>> {
-  return apiRequest<T>(url, {
+  const requestBody = body === undefined || body === null ? undefined : JSON.stringify(body)
+  const send = (runtimeAuth: RuntimeAuthCredential | null = null) => apiRequest<T>(url, {
     method,
-    headers: buildAuthHeaders(site, sessions, cookies),
-    body: body === undefined || body === null ? undefined : JSON.stringify(body)
+    headers: buildAuthHeaders(site, sessions, cookies, runtimeAuth),
+    body: requestBody
   })
+
+  const sendAndMaybeRelogin = async (runtimeAuth: RuntimeAuthCredential | null = null) => {
+    try {
+      const response = await send(runtimeAuth)
+      if (!shouldReloginAnyRouterPasswordResponse(site, response)) return response
+      const refreshedAuth = await loginAnyRouterPassword(site, cookies)
+      if (!refreshedAuth) return response
+      return send(refreshedAuth)
+    } catch (error) {
+      if (!shouldReloginAnyRouterPassword(site, error)) throw error
+      const refreshedAuth = await loginAnyRouterPassword(site, cookies)
+      if (!refreshedAuth) throw error
+      return send(refreshedAuth)
+    }
+  }
+
+  const runtimeAuth = shouldLoginAnyRouterBeforeRequest(site, sessions) ? await loginAnyRouterPassword(site, cookies) : null
+  return sendAndMaybeRelogin(runtimeAuth)
 }
 
 export async function getSiteCookies(siteUrl: string): Promise<string> {

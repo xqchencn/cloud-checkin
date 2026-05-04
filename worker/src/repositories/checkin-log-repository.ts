@@ -12,6 +12,10 @@ export interface CheckinLogInput {
   response_time: number
   http_status_code: number
   error_details: string
+  skip_reason?: string | null
+  failure_reason?: string | null
+  balance_before?: number | null
+  balance_after?: number | null
 }
 
 function toLog(row: Record<string, unknown>): CheckinLog {
@@ -28,6 +32,10 @@ function toLog(row: Record<string, unknown>): CheckinLog {
     response_time: row.response_time == null ? null : Number(row.response_time),
     http_status_code: row.http_status_code == null ? null : Number(row.http_status_code),
     error_details: row.error_details == null ? null : String(row.error_details),
+    skip_reason: row.skip_reason == null ? null : String(row.skip_reason),
+    failure_reason: row.failure_reason == null ? null : String(row.failure_reason),
+    balance_before: row.balance_before == null ? null : Number(row.balance_before),
+    balance_after: row.balance_after == null ? null : Number(row.balance_after),
     created_at: String(row.created_at)
   }
 }
@@ -38,8 +46,9 @@ export function checkinLogRepository(db: D1Database) {
       await db.prepare(`
         INSERT INTO api_site_checkin_logs (
           api_site_id, checkin_time, checkin_type, status, message, reward_amount,
-          new_balance, response_time, http_status_code, error_details, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          new_balance, response_time, http_status_code, error_details, skip_reason,
+          failure_reason, balance_before, balance_after, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         input.api_site_id,
         input.checkin_time,
@@ -51,6 +60,10 @@ export function checkinLogRepository(db: D1Database) {
         input.response_time,
         input.http_status_code,
         input.error_details,
+        input.skip_reason || null,
+        input.failure_reason || null,
+        input.balance_before ?? null,
+        input.balance_after ?? null,
         nowIso()
       ).run()
     },

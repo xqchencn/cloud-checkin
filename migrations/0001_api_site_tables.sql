@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS api_sites (
   name TEXT NOT NULL,
   url TEXT NOT NULL,
   api_type TEXT NOT NULL,
+  account_label TEXT,
+  sort_order INTEGER DEFAULT 0,
   auth_method TEXT NOT NULL,
   auth_value TEXT,
   user_id TEXT,
@@ -37,10 +39,12 @@ CREATE TABLE IF NOT EXISTS api_sites (
 
 CREATE INDEX IF NOT EXISTS idx_api_sites_enabled ON api_sites(enabled);
 CREATE INDEX IF NOT EXISTS idx_api_sites_url ON api_sites(url);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_api_sites_url_account_label_unique ON api_sites(url, account_label) WHERE account_label IS NOT NULL AND account_label != '';
 CREATE INDEX IF NOT EXISTS idx_api_sites_api_type ON api_sites(api_type);
 CREATE INDEX IF NOT EXISTS idx_api_sites_auto_checkin ON api_sites(auto_checkin);
 CREATE INDEX IF NOT EXISTS idx_api_sites_last_checkin ON api_sites(last_checkin);
 CREATE INDEX IF NOT EXISTS idx_api_sites_checkin_endpoint ON api_sites(checkin_endpoint);
+CREATE INDEX IF NOT EXISTS idx_api_sites_enabled_sort_balance ON api_sites(enabled, sort_order, site_quota);
 
 CREATE TABLE IF NOT EXISTS api_site_checkin_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,6 +53,10 @@ CREATE TABLE IF NOT EXISTS api_site_checkin_logs (
   checkin_type TEXT NOT NULL,
   status TEXT NOT NULL,
   message TEXT,
+  skip_reason TEXT,
+  failure_reason TEXT,
+  balance_before REAL,
+  balance_after REAL,
   reward_amount REAL,
   new_balance REAL,
   response_time REAL,
@@ -67,8 +75,10 @@ CREATE TABLE IF NOT EXISTS api_site_tokens (
   api_site_id INTEGER NOT NULL,
   remote_token_id TEXT,
   token_key TEXT NOT NULL,
+  value_status TEXT DEFAULT 'ready',
   token_name TEXT,
   token_group TEXT DEFAULT 'default' NOT NULL,
+  source TEXT DEFAULT 'remote',
   is_active INTEGER DEFAULT 1,
   token_quota REAL,
   token_used_quota REAL,
@@ -79,13 +89,15 @@ CREATE TABLE IF NOT EXISTS api_site_tokens (
   last_synced TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (api_site_id) REFERENCES api_sites(id) ON DELETE CASCADE,
-  UNIQUE(api_site_id, remote_token_id)
+  FOREIGN KEY (api_site_id) REFERENCES api_sites(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_api_site_tokens_api_site_id ON api_site_tokens(api_site_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_api_site_tokens_site_remote_id_unique ON api_site_tokens(api_site_id, remote_token_id) WHERE remote_token_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_api_site_tokens_site_token_key_unique ON api_site_tokens(api_site_id, token_key);
 CREATE INDEX IF NOT EXISTS idx_api_site_tokens_is_active ON api_site_tokens(is_active);
 CREATE INDEX IF NOT EXISTS idx_api_site_tokens_last_synced ON api_site_tokens(last_synced);
+CREATE INDEX IF NOT EXISTS idx_api_site_tokens_value_status ON api_site_tokens(value_status);
 
 CREATE TABLE IF NOT EXISTS api_site_task_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -62,7 +62,7 @@ export async function runCheckinTaskCycle(env: Env, source: 'scheduled' | 'manua
     const site = sites[index]
 
     if (site.auto_checkin) {
-      // 签到保持和 Go 版本一致：站点启用 auto_checkin 才执行，之后再串行跑 Token 和余额。
+      // 站点启用 auto_checkin 才执行签到，之后再串行跑 Token 和余额。
       await recordTask(env, site, logDate, 'checkin', () => checkinService(env).checkin(site.id, source))
       await sleep(TASK_INTERVAL_MS)
     }

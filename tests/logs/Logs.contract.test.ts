@@ -3,11 +3,12 @@ import {
   apiSiteSource,
   appSource,
   checkinLogRepositorySource,
+  logTableSource,
   mainSource,
   schedulerServiceSource,
   taskLogRepositorySource,
   toastSource
-} from './sources'
+} from '../sources'
 
 describe('Log and notification contracts', () => {
   it('labels scheduled task logs separately from existing manual actions and keeps task logs paginated', () => {
@@ -15,7 +16,9 @@ describe('Log and notification contracts', () => {
     expect(appSource).not.toContain('执行定时任务')
     expect(appSource).not.toContain('RunTasksNow')
     expect(apiSiteSource).not.toContain('/api/tasks/run-now')
-    expect(appSource).toContain('taskData.logs.map')
+    expect(appSource).toContain('buildTaskLogRows(taskData.logs)')
+    expect(logTableSource).toContain('export function buildTaskLogRows')
+    expect(logTableSource).toContain('return logs.map(log => [')
     expect(appSource).toContain('ApiTaskLogs(params)')
     expect(appSource).toContain('共 {data.total} 条，每页 {pageSize} 条')
     expect(appSource).not.toContain("useState<{ tab: 'checkin' | 'task'; text: string } | null>(null)")
@@ -54,5 +57,12 @@ describe('Log and notification contracts', () => {
   it('orders checkin and scheduled task logs newest first with deterministic ties', () => {
     expect(checkinLogRepositorySource).toContain('ORDER BY datetime(l.checkin_time) DESC, l.id DESC')
     expect(taskLogRepositorySource).toContain('ORDER BY datetime(exec_time) DESC, id DESC')
+  })
+
+  it('uses the latest task-log row for today status per site', () => {
+    expect(taskLogRepositorySource).toContain('WITH latest_task_logs AS')
+    expect(taskLogRepositorySource).toContain('ROW_NUMBER() OVER (PARTITION BY api_site_id')
+    expect(taskLogRepositorySource).toContain('ORDER BY datetime(updated_at) DESC, id DESC')
+    expect(taskLogRepositorySource).toContain('AND l.row_number = 1')
   })
 })

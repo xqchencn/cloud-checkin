@@ -47,10 +47,12 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
   ) {
     return handleCheckinRoutes(request, env, ctx)
   }
-  if (url.pathname === '/api/sites/batch-refresh-models' || /^\/api\/sites\/\d+\/models(\/refresh|\/statistics)?$/.test(url.pathname)) {
+  if (
+    /^\/api\/sites\/\d+\/models(\/refresh)?$/.test(url.pathname)
+  ) {
     return handleModelRoutes(request, env, ctx)
   }
-  if (url.pathname.startsWith('/api/tokens') || /^\/api\/sites\/\d+\/(tokens|token-statistics|remote-tokens|remote-tokens\/.+|remote-token-groups)$/.test(url.pathname)) {
+  if (url.pathname.startsWith('/api/tokens') || /^\/api\/sites\/\d+\/(tokens|remote-tokens|remote-tokens\/.+|remote-token-groups)$/.test(url.pathname)) {
     return handleTokenRoutes(request, env, ctx)
   }
   if (url.pathname.startsWith('/api/sites')) {

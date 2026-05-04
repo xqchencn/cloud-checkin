@@ -10,6 +10,8 @@ function idFrom(pathname: string, pattern: RegExp): number | null {
   return match ? Number(match[1]) : null
 }
 
+type BatchBody = { site_ids?: number[] }
+
 export async function handleCheckinRoutes(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url)
   const checkins = checkinService(env)
@@ -17,12 +19,12 @@ export async function handleCheckinRoutes(request: Request, env: Env, _ctx: Exec
   const tokens = tokenService(env)
 
   if (url.pathname === '/api/sites/batch-checkin' && request.method === 'POST') {
-    const body = await readJson<{ site_ids?: number[] }>(request)
+    const body = await readJson<BatchBody>(request)
     return jsonOk(await checkins.batchCheckin(body.site_ids || []))
   }
 
   if (url.pathname === '/api/sites/concurrent-checkin' && request.method === 'POST') {
-    const body = await readJson<{ site_ids?: number[] }>(request)
+    const body = await readJson<BatchBody>(request)
     return jsonOk(await checkins.batchCheckin(body.site_ids || []))
   }
 
@@ -35,7 +37,7 @@ export async function handleCheckinRoutes(request: Request, env: Env, _ctx: Exec
   }
 
   if (url.pathname === '/api/sites/batch-refresh-balance' && request.method === 'POST') {
-    const body = await readJson<{ site_ids?: number[] }>(request)
+    const body = await readJson<BatchBody>(request)
     return jsonOk(await balances.batchQueryBalance(body.site_ids || []))
   }
 
@@ -44,7 +46,7 @@ export async function handleCheckinRoutes(request: Request, env: Env, _ctx: Exec
   }
 
   if (url.pathname === '/api/sites/batch-sync-tokens' && request.method === 'POST') {
-    const body = await readJson<{ site_ids?: number[] }>(request)
+    const body = await readJson<BatchBody>(request)
     return jsonOk(await tokens.batchSyncTokens(body.site_ids || []))
   }
 

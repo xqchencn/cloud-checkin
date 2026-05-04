@@ -8,7 +8,7 @@ export function modelRepository(db: D1Database) {
         await db.prepare(`
           INSERT INTO api_site_models (site_id, model_name, model_type, is_active, created_at)
           VALUES (?, ?, '', 1, ?)
-          ON CONFLICT(site_id, model_name) DO UPDATE SET is_active = 1
+          ON CONFLICT(site_id, model_name) DO UPDATE SET model_type = excluded.model_type
         `).bind(siteId, modelName, nowIso()).run()
       }
     },

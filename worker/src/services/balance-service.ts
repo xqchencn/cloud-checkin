@@ -2,10 +2,16 @@ import { siteRepository } from '../repositories/site-repository'
 import { tokenRepository } from '../repositories/token-repository'
 import { ApiHttpError } from '../response'
 import type { ApiSite, Env } from '../types'
-import { buildApiEndpoint, extractDataObject, extractOptionalNumber, extractString, getSiteCookies, requestWithSite, withRetry } from './api-client'
+import { buildApiEndpoint, extractDataObject, extractOptionalNumber, extractString, getSiteCookies, requestWithSite, withRetry, type RemoteResponse } from './api-client'
+import { getPlatformAdapter } from './platforms'
+import { getEndpointCandidates } from './site-types'
 
-function convertQuota(remoteQuota: number): number {
-  return remoteQuota / 500000
+export function quotaConversionFactor(apiType: string): number {
+  return getPlatformAdapter(apiType)?.balance.quotaFactor ?? 500000
+}
+
+export function convertQuotaForPlatform(remoteQuota: number, apiType: string): number {
+  return remoteQuota / quotaConversionFactor(apiType)
 }
 
 function firstNumber(data: Record<string, unknown>, fields: string[]): number | null {
@@ -16,6 +22,46 @@ function firstNumber(data: Record<string, unknown>, fields: string[]): number | 
   return null
 }
 
+export function parseBalanceFields(apiType: string, data: Record<string, unknown>): Record<string, unknown> {
+  const adapter = getPlatformAdapter(apiType)
+  const fields: Record<string, unknown> = {}
+  const username = extractString(data, 'username') || extractString(data, 'name') || extractString(data, 'display_name') || extractString(data, 'email')
+  const userGroup = extractString(data, 'user_group') || extractString(data, 'group') || extractString(data, 'group_name')
+  const affCode = extractString(data, 'aff_code') || extractString(data, 'affCode')
+  const quota = firstNumber(data, ['quota', 'balance'])
+  const usedQuota = firstNumber(data, ['used_quota', 'used'])
+  const requestCount = extractOptionalNumber(data, 'request_count')
+  const affCount = extractOptionalNumber(data, 'aff_count')
+  const affQuota = extractOptionalNumber(data, 'aff_quota')
+  const affHistoryQuota = extractOptionalNumber(data, 'aff_history_quota')
+
+  if (username !== null) fields.site_username = username
+  if (userGroup !== null) fields.site_user_group = userGroup
+  if (affCode !== null) fields.site_aff_code = affCode
+
+  if (adapter?.balance.doneHubQuotaSemantics) {
+    const remaining = quota === null ? 0 : convertQuotaForPlatform(quota, apiType)
+    const used = usedQuota === null ? 0 : convertQuotaForPlatform(usedQuota, apiType)
+    fields.site_quota = remaining + used
+    fields.site_used_quota = used
+  } else {
+    if (quota !== null) fields.site_quota = convertQuotaForPlatform(quota, apiType)
+    if (usedQuota !== null) fields.site_used_quota = convertQuotaForPlatform(usedQuota, apiType)
+  }
+
+  if (requestCount !== null) fields.site_request_count = requestCount
+  if (affCount !== null) fields.site_aff_count = affCount
+  if (affQuota !== null) fields.site_aff_quota = convertQuotaForPlatform(affQuota, apiType)
+  if (affHistoryQuota !== null) fields.site_aff_history_quota = convertQuotaForPlatform(affHistoryQuota, apiType)
+
+  return fields
+}
+
+export const __balanceServiceTestHooks = {
+  convertQuotaForPlatform,
+  parseBalanceFields
+}
+
 export function balanceService(env: Env) {
   const sites = siteRepository(env.DB)
   const tokens = tokenRepository(env.DB)
@@ -23,41 +69,37 @@ export function balanceService(env: Env) {
   async function queryUserInfo(siteId: number): Promise<ApiSite> {
     const site = await sites.findById(siteId)
     if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
-    // Go 版余额查询统一使用 /api/user/self；/api/user/info 在部分 NewApi 站点只返回 success/message。
-    const endpoint = buildApiEndpoint(site.url, '/api/user/self')
-    const cookies = await getSiteCookies(site.url)
-    const response = await withRetry(() => requestWithSite<Record<string, unknown>>(site, 'GET', endpoint, undefined, '', cookies))
-    const data = extractDataObject(response.data)
-    const now = new Date().toISOString()
-    const fields: Record<string, unknown> = {
-      last_check_time: now,
-      last_check_status: 'success',
-      last_check_message: '查询成功'
+    try {
+      const cookies = await getSiteCookies(site.url)
+      let response: RemoteResponse<Record<string, unknown>> | null = null
+      let lastError: unknown = null
+      // 余额接口跟平台分支强相关，必须按 adapter 候选顺序尝试。
+      for (const path of getEndpointCandidates(site.api_type, 'userInfo')) {
+        try {
+          const endpoint = buildApiEndpoint(site.url, path)
+          response = await withRetry(() => requestWithSite<Record<string, unknown>>(site, 'GET', endpoint, undefined, '', cookies))
+          break
+        } catch (error) {
+          lastError = error
+        }
+      }
+      if (!response) throw lastError ?? new ApiHttpError('REMOTE_ERROR', '站点用户信息接口不可用', 502)
+      const data = extractDataObject(response.data)
+      const now = new Date().toISOString()
+      const fields: Record<string, unknown> = {
+        last_check_time: now,
+        last_check_status: 'success',
+        last_check_message: '查询成功',
+        ...parseBalanceFields(site.api_type, data)
+      }
+
+      await withRetry(() => sites.updateFields(site.id, fields))
+
+      const updated = await sites.findById(siteId)
+      return updated || site
+    } catch (error) {
+      throw error
     }
-    const username = extractString(data, 'username') || extractString(data, 'name') || extractString(data, 'display_name') || extractString(data, 'email')
-    const userGroup = extractString(data, 'user_group') || extractString(data, 'group') || extractString(data, 'group_name')
-    const affCode = extractString(data, 'aff_code') || extractString(data, 'affCode')
-    const quota = firstNumber(data, ['quota', 'balance'])
-    const usedQuota = firstNumber(data, ['used_quota', 'used'])
-    const requestCount = extractOptionalNumber(data, 'request_count')
-    const affCount = extractOptionalNumber(data, 'aff_count')
-    const affQuota = extractOptionalNumber(data, 'aff_quota')
-    const affHistoryQuota = extractOptionalNumber(data, 'aff_history_quota')
-
-    if (username !== null) fields.site_username = username
-    if (userGroup !== null) fields.site_user_group = userGroup
-    if (affCode !== null) fields.site_aff_code = affCode
-    if (quota !== null) fields.site_quota = convertQuota(quota)
-    if (usedQuota !== null) fields.site_used_quota = convertQuota(usedQuota)
-    if (requestCount !== null) fields.site_request_count = requestCount
-    if (affCount !== null) fields.site_aff_count = affCount
-    if (affQuota !== null) fields.site_aff_quota = convertQuota(affQuota)
-    if (affHistoryQuota !== null) fields.site_aff_history_quota = convertQuota(affHistoryQuota)
-
-    await withRetry(() => sites.updateFields(site.id, fields))
-
-    const updated = await sites.findById(siteId)
-    return updated || site
   }
 
   return {

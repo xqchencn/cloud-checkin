@@ -4,15 +4,16 @@ import { ApiHttpError } from '../response'
 import type { ApiSite, CheckinResult, Env } from '../types'
 import { buildApiEndpoint, extractBoolean, extractDataObject, extractOptionalNumber, getNestedObject, getRemoteMessage, getSiteCookies, isFullUrl, isSuccessResponse, requestWithSite } from './api-client'
 import { balanceService } from './balance-service'
-import { getEndpointCheckin, supportsCheckin } from './site-types'
+import { getPlatformAdapter } from './platforms'
+import { getEndpointCandidates, supportsCheckin } from './site-types'
 
 function alreadyCheckedIn(message: string): boolean {
   const lower = message.toLowerCase()
   return ['已签到', '今日已签', 'already checked in', 'already signed', 'duplicate'].some(keyword => lower.includes(keyword.toLowerCase()))
 }
 
-function convertQuota(remoteQuota: number): number {
-  return remoteQuota / 500000
+function convertQuota(remoteQuota: number, apiType: string): number {
+  return remoteQuota / (getPlatformAdapter(apiType)?.balance.quotaFactor ?? 500000)
 }
 
 function firstNumber(data: Record<string, unknown>, fields: string[]): number | null {
@@ -73,25 +74,76 @@ function failedResult(siteId: number, message: string, checkinTime = new Date().
   }
 }
 
+function skippedResult(siteId: number, message: string, currentBalance = 0, checkinTime = new Date().toISOString()): CheckinResult {
+  return {
+    api_site_id: siteId,
+    status: 'skipped',
+    message,
+    reward_amount: 0,
+    new_balance: currentBalance,
+    checkin_time: checkinTime,
+    response_time: 0,
+    http_status_code: 0
+  }
+}
+
+function buildCheckinDiagnostics(site: ApiSite, result: CheckinResult) {
+  const failed = result.status === 'failed' || result.status === 'error'
+  const skipped = result.status === 'skipped' || result.status === 'already_checked_in'
+  return {
+    skip_reason: skipped ? result.message : null,
+    failure_reason: failed ? result.message : null,
+    balance_before: site.site_quota,
+    balance_after: result.status === 'success' ? result.new_balance : null
+  }
+}
+
 export function buildCheckinEndpoint(site: ApiSite): string {
   // 支持单站点覆盖签到端点；未配置时走站点类型注册表里的默认端点。
   const custom = site.checkin_endpoint?.trim()
   if (custom) return isFullUrl(custom) ? custom : buildApiEndpoint(site.url, custom)
-  const endpoint = getEndpointCheckin(site.api_type)
+  const endpoint = checkinEndpointCandidates(site.api_type)[0] ?? ''
   return endpoint ? buildApiEndpoint(site.url, endpoint) : ''
+}
+
+export function checkinEndpointCandidates(apiType: string): string[] {
+  return getEndpointCandidates(apiType, 'checkin')
+}
+
+export function buildCheckinEndpoints(site: ApiSite): string[] {
+  const custom = site.checkin_endpoint?.trim()
+  if (custom) return [isFullUrl(custom) ? custom : buildApiEndpoint(site.url, custom)]
+  return checkinEndpointCandidates(site.api_type).map(endpoint => buildApiEndpoint(site.url, endpoint))
+}
+
+function shouldTryNextCheckinEndpoint(message: string): boolean {
+  const lower = message.toLowerCase()
+  return [
+    'invalid url',
+    'endpoint not found',
+    'checkin endpoint not found',
+    'not support checkin',
+    'does not support checkin',
+    '404'
+  ].some(keyword => lower.includes(keyword))
+}
+
+export const __checkinServiceTestHooks = {
+  checkinEndpointCandidates,
+  extractRewardAmountFromMessage
 }
 
 export function checkinService(env: Env) {
   const sites = siteRepository(env.DB)
   const logs = checkinLogRepository(env.DB)
 
-  async function logAndStore(siteId: number, result: CheckinResult, checkinType: string): Promise<void> {
-    await sites.updateFields(siteId, {
+  async function logAndStore(site: ApiSite, result: CheckinResult, checkinType: string): Promise<void> {
+    await sites.updateFields(site.id, {
       last_checkin: result.checkin_time,
       last_checkin_status: result.status
     })
     await logs.create({
-      api_site_id: siteId,
+      api_site_id: site.id,
       checkin_time: result.checkin_time,
       checkin_type: checkinType,
       status: result.status,
@@ -100,20 +152,21 @@ export function checkinService(env: Env) {
       new_balance: result.new_balance,
       response_time: result.response_time,
       http_status_code: result.http_status_code,
-      error_details: result.status === 'failed' ? result.message : ''
+      error_details: result.status === 'failed' ? result.message : '',
+      ...buildCheckinDiagnostics(site, result)
     })
   }
 
   async function checkRemoteCheckinStatus(site: ApiSite): Promise<'continue' | 'already_checked_in' | 'disabled'> {
-    // 和 Go 版保持一致：仅 NewApi 且未配置自定义端点时，先 GET 查询远程签到状态。
+    // 仅 NewApi 且未配置自定义端点时，先 GET 查询远程签到状态。
     if (site.api_type !== 'NewApi' || site.checkin_endpoint?.trim()) return 'continue'
 
     const isWongChannel = site.name.toLowerCase().includes('wong')
-    const endpoint = isWongChannel
-      ? buildApiEndpoint(site.url, '/api/user/checkin')
-      : buildApiEndpoint(site.url, `/api/user/checkin?month=${currentMonth()}`)
 
     try {
+      const endpoint = isWongChannel
+        ? buildApiEndpoint(site.url, '/api/user/checkin')
+        : buildApiEndpoint(site.url, `/api/user/checkin?month=${currentMonth()}`)
       const cookies = await getSiteCookies(site.url)
       const response = await requestWithSite<Record<string, unknown>>(site, 'GET', endpoint, undefined, '', cookies)
       const data = extractDataObject(response.data)
@@ -131,7 +184,7 @@ export function checkinService(env: Env) {
       const checkedInToday = extractBoolean(stats, 'checked_in_today')
       return checkedInToday === true ? 'already_checked_in' : 'continue'
     } catch {
-      // Go 版这里是降级策略：状态查询失败不阻断实际签到请求。
+      // 状态探测失败不阻断实际签到请求，避免远端查询接口波动影响签到。
       return 'continue'
     }
   }
@@ -139,13 +192,21 @@ export function checkinService(env: Env) {
   async function checkin(siteId: number, checkinType: string): Promise<CheckinResult> {
     const site = await sites.findById(siteId)
     if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
-    if (!site.enabled) throw new ApiHttpError('VALIDATION_ERROR', '站点未启用')
-    if (!supportsCheckin(site.api_type)) throw new ApiHttpError('VALIDATION_ERROR', `站点 ${site.name} 不支持签到`)
+    if (!site.enabled) {
+      const result = skippedResult(siteId, '站点未启用', site.site_quota)
+      await logAndStore(site, result, checkinType)
+      return result
+    }
+    if (!supportsCheckin(site.api_type)) {
+      const result = skippedResult(siteId, `站点 ${site.name} 不支持签到`, site.site_quota)
+      await logAndStore(site, result, checkinType)
+      return result
+    }
 
     const remoteStatus = await checkRemoteCheckinStatus(site)
     if (remoteStatus === 'disabled') {
-      const result = failedResult(siteId, '签到功能未启用')
-      await logAndStore(siteId, result, checkinType)
+      const result = skippedResult(siteId, '签到功能未启用', site.site_quota)
+      await logAndStore(site, result, checkinType)
       return result
     }
     if (remoteStatus === 'already_checked_in') {
@@ -154,60 +215,84 @@ export function checkinService(env: Env) {
         status: 'already_checked_in',
         message: '今日已签到（远程检测）',
         reward_amount: 0,
-        new_balance: 0,
+        new_balance: site.site_quota,
         checkin_time: new Date().toISOString(),
         response_time: 0,
         http_status_code: 0
       }
-      await logAndStore(siteId, result, checkinType)
+      await logAndStore(site, result, checkinType)
       return result
     }
 
-    const endpoint = buildCheckinEndpoint(site)
-    if (!endpoint) throw new ApiHttpError('VALIDATION_ERROR', '未配置签到端点')
+    const endpoints = buildCheckinEndpoints(site)
+    if (!endpoints.length) throw new ApiHttpError('VALIDATION_ERROR', '未配置签到端点')
 
     const started = Date.now()
     const checkinTime = new Date().toISOString()
-    let result: CheckinResult
+    let result: CheckinResult | null = null
+    let lastFailureMessage = ''
 
-    try {
-      const cookies = await getSiteCookies(site.url)
-      const response = await requestWithSite<Record<string, unknown>>(site, 'POST', endpoint, null, '', cookies)
-      const data = extractDataObject(response.data)
-      const message = getRemoteMessage(response.data)
-      // 各类 New API 分支返回格式不完全一致，这里同时看 success/code/status 和文案里的“已签到”。
-      const isAlready = isAlreadyCheckedInData(data, message) || alreadyCheckedIn(JSON.stringify(data))
-      const ok = isSuccessResponse(response.data) || isAlready
-      const rewardRaw = firstNumber(data, ['reward', 'amount', 'quota_awarded'])
-      const balanceRaw = firstNumber(data, ['balance', 'quota'])
-      const rewardFromMessage = extractRewardAmountFromMessage(message)
-      const rewardAmount = rewardRaw === null ? rewardFromMessage : convertQuota(rewardRaw)
-      const newBalance = balanceRaw === null ? 0 : convertQuota(balanceRaw)
-      result = {
-        api_site_id: siteId,
-        status: isAlready ? 'already_checked_in' : ok ? 'success' : 'failed',
-        message: isAlready ? '今日已签到' : message,
-        reward_amount: rewardAmount,
-        new_balance: newBalance,
-        checkin_time: checkinTime,
-        response_time: response.responseTimeMs,
-        http_status_code: response.status
+    const cookies = await getSiteCookies(site.url)
+    for (const endpoint of endpoints) {
+      try {
+        const body = endpoint.includes('/sign_in') ? {} : null
+        const response = await requestWithSite<Record<string, unknown>>(site, 'POST', endpoint, body, '', cookies)
+        const data = extractDataObject(response.data)
+        const message = getRemoteMessage(response.data)
+        // 各类 New API 分支返回格式不完全一致，这里同时看 success/code/status 和文案里的“已签到”。
+        const isAlready = isAlreadyCheckedInData(data, message) || alreadyCheckedIn(JSON.stringify(data))
+        const ok = isSuccessResponse(response.data) || isAlready
+        const rewardRaw = firstNumber(data, ['reward', 'amount', 'quota_awarded'])
+        const balanceRaw = firstNumber(data, ['balance', 'quota'])
+        const rewardFromMessage = extractRewardAmountFromMessage(message)
+        const rewardAmount = rewardRaw === null ? rewardFromMessage : convertQuota(rewardRaw, site.api_type)
+        const newBalance = balanceRaw === null ? 0 : convertQuota(balanceRaw, site.api_type)
+        result = {
+          api_site_id: siteId,
+          status: isAlready ? 'already_checked_in' : ok ? 'success' : 'failed',
+          message: isAlready ? '今日已签到' : message,
+          reward_amount: rewardAmount,
+          new_balance: newBalance,
+          checkin_time: checkinTime,
+          response_time: response.responseTimeMs,
+          http_status_code: response.status
+        }
+        if (result.status !== 'failed' || !shouldTryNextCheckinEndpoint(message)) break
+        lastFailureMessage = message
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        lastFailureMessage = message
+        if (!shouldTryNextCheckinEndpoint(message)) {
+          result = {
+            api_site_id: siteId,
+            status: alreadyCheckedIn(message) ? 'already_checked_in' : 'failed',
+            message: alreadyCheckedIn(message) ? '今日已签到' : `签到请求失败: ${message}`,
+            reward_amount: 0,
+            new_balance: alreadyCheckedIn(message) ? site.site_quota : 0,
+            checkin_time: checkinTime,
+            response_time: Date.now() - started,
+            http_status_code: 0
+          }
+          break
+        }
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+    }
+
+    if (!result) {
+      const message = lastFailureMessage || '签到请求失败'
       result = {
         api_site_id: siteId,
         status: alreadyCheckedIn(message) ? 'already_checked_in' : 'failed',
         message: alreadyCheckedIn(message) ? '今日已签到' : `签到请求失败: ${message}`,
         reward_amount: 0,
-        new_balance: 0,
+        new_balance: alreadyCheckedIn(message) ? site.site_quota : 0,
         checkin_time: checkinTime,
         response_time: Date.now() - started,
         http_status_code: 0
       }
     }
 
-    await logAndStore(siteId, result, checkinType)
+    await logAndStore(site, result, checkinType)
 
     if (result.status === 'success') {
       // 签到成功后顺手刷新余额；失败不阻断签到日志写入。
@@ -241,6 +326,7 @@ export function checkinService(env: Env) {
       return {
         total_sites: siteIds.length,
         success_count: results.filter(r => r.status === 'success' || r.status === 'already_checked_in').length,
+        skipped_count: results.filter(r => r.status === 'skipped').length,
         failed_count: results.filter(r => r.status === 'failed' || r.status === 'error').length,
         results,
         execution_time: Date.now() - started

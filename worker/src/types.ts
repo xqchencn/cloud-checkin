@@ -85,6 +85,8 @@ export interface ApiSite {
   name: string
   url: string
   api_type: string
+  account_label: string | null
+  sort_order: number
   auth_method: AuthMethod
   auth_value: string | null
   user_id: string | null
@@ -118,6 +120,8 @@ export interface ApiSiteInput {
   name: string
   url: string
   api_type: string
+  account_label?: string
+  sort_order?: number
   auth_method: AuthMethod
   auth_value?: string
   user_id?: string
@@ -134,8 +138,10 @@ export interface ApiSiteToken {
   api_site_id: number
   remote_token_id: string | null
   token_key: string
+  value_status: 'ready' | 'masked_pending' | 'missing'
   token_name: string | null
   token_group: string
+  source: string
   is_active: number
   token_quota: number | null
   token_used_quota: number | null
@@ -159,7 +165,7 @@ export interface ApiSiteModel {
 
 export interface CheckinResult {
   api_site_id: number
-  status: 'success' | 'already_checked_in' | 'failed' | 'error'
+  status: 'success' | 'already_checked_in' | 'skipped' | 'failed' | 'error'
   message: string
   reward_amount: number
   new_balance: number
@@ -181,6 +187,10 @@ export interface CheckinLog {
   response_time: number | null
   http_status_code: number | null
   error_details: string | null
+  skip_reason: string | null
+  failure_reason: string | null
+  balance_before: number | null
+  balance_after: number | null
   created_at: string
 }
 

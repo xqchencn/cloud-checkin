@@ -62,12 +62,18 @@ export function taskLogRepository(db: D1Database) {
 
     async todayStatus(logDate: string): Promise<Record<string, unknown>[]> {
       return all<Record<string, unknown>>(db.prepare(`
+        WITH latest_task_logs AS (
+          SELECT *,
+                 ROW_NUMBER() OVER (PARTITION BY api_site_id ORDER BY datetime(updated_at) DESC, id DESC) AS row_number
+          FROM api_site_task_logs
+          WHERE log_date = ?
+        )
         SELECT s.id AS api_site_id, s.name AS site_name, ? AS log_date,
                l.checkin_status, l.checkin_message,
                l.sync_token_status, l.sync_token_message,
                l.query_balance_status, l.query_balance_message
         FROM api_sites s
-        LEFT JOIN api_site_task_logs l ON l.api_site_id = s.id AND l.log_date = ?
+        LEFT JOIN latest_task_logs l ON l.api_site_id = s.id AND l.row_number = 1
         WHERE s.enabled = 1
         ORDER BY s.id ASC
       `).bind(logDate, logDate))

@@ -3,9 +3,13 @@ import { siteRepository } from '../repositories/site-repository'
 import { ApiHttpError } from '../response'
 import type { Env } from '../types'
 import { buildApiEndpoint, extractDataObject, getSiteCookies, requestWithSite } from './api-client'
-import { getEndpointModels, getModelsParseStrategy } from './site-types'
+import { getEndpointCandidates, getModelsParseStrategy } from './site-types'
 
-function parseModels(payload: Record<string, unknown>, strategy: 'array' | 'object'): string[] {
+export function parseModels(payload: Record<string, unknown>, strategy: 'array' | 'object' | 'openai'): string[] {
+  if (strategy === 'openai' && Array.isArray(payload.data)) {
+    return payload.data.map(item => typeof item === 'string' ? item : String((item as Record<string, unknown>).id || '')).filter(Boolean)
+  }
+
   const data = extractDataObject(payload)
   const source = data.models ?? data.model ?? data
 
@@ -24,6 +28,15 @@ function parseModels(payload: Record<string, unknown>, strategy: 'array' | 'obje
   return []
 }
 
+export function modelEndpointCandidates(apiType: string): string[] {
+  return getEndpointCandidates(apiType, 'models')
+}
+
+export const __modelServiceTestHooks = {
+  parseModels,
+  modelEndpointCandidates
+}
+
 export function modelService(env: Env) {
   const sites = siteRepository(env.DB)
   const models = modelRepository(env.DB)
@@ -32,10 +45,21 @@ export function modelService(env: Env) {
     async refreshModels(siteId: number): Promise<{ site_id: number; total_count: number; models: string[] }> {
       const site = await sites.findById(siteId)
       if (!site) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
-      const endpoint = buildApiEndpoint(site.url, getEndpointModels(site.api_type))
       const cookies = await getSiteCookies(site.url)
-      const response = await requestWithSite<Record<string, unknown>>(site, 'GET', endpoint, undefined, '', cookies)
-      const names = parseModels(response.data, getModelsParseStrategy(site.api_type))
+      let names: string[] = []
+      let lastError: unknown = null
+      // 模型接口在 OneApi/Veloera/OneHub/DoneHub 上差异明显，按 adapter 顺序尝试到拿到模型为止。
+      for (const path of modelEndpointCandidates(site.api_type)) {
+        try {
+          const endpoint = buildApiEndpoint(site.url, path)
+          const response = await requestWithSite<Record<string, unknown>>(site, 'GET', endpoint, undefined, '', cookies)
+          names = parseModels(response.data, getModelsParseStrategy(site.api_type))
+          if (names.length > 0) break
+        } catch (error) {
+          lastError = error
+        }
+      }
+      if (!names.length && lastError) throw lastError
       await models.deleteBySiteId(siteId)
       await models.upsertModels(siteId, names)
       return { site_id: siteId, total_count: names.length, models: names }
@@ -52,27 +76,5 @@ export function modelService(env: Env) {
       }
     },
 
-    async batchRefreshModels(siteIds: number[]): Promise<Record<string, unknown>> {
-      const results: Record<string, unknown> = {}
-      for (const id of siteIds) {
-        try {
-          results[id] = await this.refreshModels(id)
-        } catch (error) {
-          results[id] = { error: error instanceof Error ? error.message : String(error) }
-        }
-      }
-      return results
-    },
-
-    async getModelsStats(siteId: number) {
-      const rows = await models.getBySiteId(siteId)
-      return {
-        site_id: siteId,
-        models: rows,
-        total_models: rows.length,
-        total_usage: 0,
-        last_updated: rows[0]?.created_at || ''
-      }
-    }
   }
 }

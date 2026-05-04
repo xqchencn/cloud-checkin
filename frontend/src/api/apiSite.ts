@@ -7,6 +7,8 @@ export interface ApiSite {
   name: string
   url: string
   api_type: string
+  account_label: string | null
+  sort_order: number
   auth_method: AuthMethod
   auth_value: string | null
   user_id: string | null
@@ -38,6 +40,8 @@ export interface SiteFormPayload {
   name: string
   url: string
   api_type: string
+  account_label: string
+  sort_order: number
   auth_method: AuthMethod
   auth_value: string
   user_id: string
@@ -47,6 +51,37 @@ export interface SiteFormPayload {
   auto_checkin: boolean
   remarks: string
   checkin_endpoint: string
+}
+
+export interface SiteDetectPayload {
+  url: string
+  htmlTitle?: string
+  fetchTitle?: boolean
+  detectPreset?: boolean
+}
+
+export interface SiteDetectResult {
+  input_url: string
+  url: string
+  canonical_url: string
+  url_action: 'none' | 'strip_known_api_suffix' | 'preserve_semantic_path'
+  api_type: string
+  api_type_source: string
+  api_type_confidence: number
+  site_name: string
+  site_name_source: string
+  site_name_confidence: number
+  account_label_guess: string | null
+  initialization_preset_id: string | null
+  initialization_preset_label: string | null
+  supports_checkin: boolean
+  requires_user_id: boolean
+  default_checkin_endpoint: string
+  default_user_info_endpoint: string
+  default_models_endpoint: string
+  recommended_skip_model_fetch: boolean
+  recommended_models: string[]
+  warnings: string[]
 }
 
 export interface TodayCheckinStats {
@@ -68,8 +103,10 @@ export interface ApiToken {
   id: number
   remote_token_id: string | null
   token_key: string
+  value_status: 'ready' | 'masked_pending' | 'missing'
   token_name: string | null
   token_group: string
+  source: string
   is_active: number
   token_quota: number | null
   token_used_quota: number | null
@@ -78,6 +115,20 @@ export interface ApiToken {
   accessed_time: string | null
   expired_time: string | null
   last_synced: string | null
+}
+
+export interface RemoteTokenPayload {
+  tokenName: string
+  group: string
+}
+
+export interface ApiSiteGroup {
+  name: string
+  url: string
+  api_type: string
+  total_sites: number
+  enabled_sites: number
+  sites: ApiSite[]
 }
 
 export interface ApiModel {
@@ -101,6 +152,10 @@ export interface CheckinLog {
   response_time: number | null
   http_status_code: number | null
   error_details?: string | null
+  skip_reason?: string | null
+  failure_reason?: string | null
+  balance_before?: number | null
+  balance_after?: number | null
   created_at?: string
 }
 
@@ -114,6 +169,14 @@ export interface TaskLog {
   message: string | null
   error: string | null
   exec_time: string | null
+}
+
+export type BatchOperationResult = Record<string, unknown>
+
+export interface BatchUpdateByUrlResult {
+  matched_count: number
+  updated_count: number
+  site_ids: number[]
 }
 
 export interface LogQueryParams {
@@ -188,17 +251,31 @@ export const AuthLogin = (password: string) => apiRequest<{ authenticated: boole
 export const AuthLogout = () => apiRequest<{ authenticated: boolean }>('/api/auth/logout', { method: 'POST' })
 
 export const ApiSiteList = () => apiRequest<ApiSite[]>('/api/sites')
+export const ApiSiteGrouped = () => apiRequest<ApiSiteGroup[]>('/api/sites/grouped')
+export const ApiSiteDetect = (payload: SiteDetectPayload) => apiRequest<SiteDetectResult>('/api/sites/detect', {
+  method: 'POST',
+  body: JSON.stringify(payload)
+})
 export const ApiSiteCreate = (payload: SiteFormPayload) => apiRequest<{ id: number }>('/api/sites', { method: 'POST', body: JSON.stringify(payload) })
 export const ApiSiteUpdate = (id: number, payload: SiteFormPayload) => apiRequest<{ id: number }>(`/api/sites/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+export const ApiSiteBatchUpdateByUrl = (payload: Record<string, unknown>) => apiRequest<BatchUpdateByUrlResult>('/api/sites/batch-update-by-url', { method: 'POST', body: JSON.stringify(payload) })
+export const ApiSiteRebindAuth = (id: number, payload: Partial<SiteFormPayload>) => apiRequest<{ id: number }>(`/api/sites/${id}/rebind-auth`, { method: 'POST', body: JSON.stringify(payload) })
 export const ApiSiteDelete = (id: number) => apiRequest<{ id: number }>(`/api/sites/${id}`, { method: 'DELETE' })
 export const ApiSiteCheckin = (id: number) => apiRequest(`/api/sites/${id}/checkin`, { method: 'POST' })
 export const ApiSiteRefreshBalance = (id: number) => apiRequest(`/api/sites/${id}/refresh-balance`, { method: 'POST' })
 export const ApiSiteSyncTokens = (id: number) => apiRequest(`/api/sites/${id}/sync-tokens`, { method: 'POST' })
 export const ApiSiteRefreshModels = (id: number) => apiRequest(`/api/sites/${id}/models/refresh`, { method: 'POST' })
-export const ApiSiteBatchRefreshBalance = (siteIds: number[]) => apiRequest('/api/sites/batch-refresh-balance', { method: 'POST', body: JSON.stringify({ site_ids: siteIds }) })
-export const ApiSiteBatchCheckin = (siteIds: number[]) => apiRequest('/api/sites/batch-checkin', { method: 'POST', body: JSON.stringify({ site_ids: siteIds }) })
-export const ApiSiteBatchSyncTokens = (siteIds: number[]) => apiRequest('/api/sites/batch-sync-tokens', { method: 'POST', body: JSON.stringify({ site_ids: siteIds }) })
+export const ApiSiteBatchRefreshBalance = (siteIds: number[]) => apiRequest<BatchOperationResult>('/api/sites/batch-refresh-balance', { method: 'POST', body: JSON.stringify({ site_ids: siteIds }) })
+export const ApiSiteBatchCheckin = (siteIds: number[]) => apiRequest<BatchOperationResult>('/api/sites/batch-checkin', { method: 'POST', body: JSON.stringify({ site_ids: siteIds }) })
+export const ApiSiteBatchSyncTokens = (siteIds: number[]) => apiRequest<BatchOperationResult>('/api/sites/batch-sync-tokens', { method: 'POST', body: JSON.stringify({ site_ids: siteIds }) })
 export const ApiSiteGetTokens = (id: number) => apiRequest<ApiToken[]>(`/api/sites/${id}/tokens`)
+export const ApiSiteGetRemoteTokenGroups = (siteId: number) => apiRequest<{ groups: string[] }>(`/api/sites/${siteId}/remote-token-groups`)
+export const ApiSiteCreateRemoteToken = (siteId: number, payload: RemoteTokenPayload) => apiRequest<{ ok: boolean }>(`/api/sites/${siteId}/remote-tokens`, {
+  method: 'POST',
+  body: JSON.stringify(payload)
+})
+export const ApiSiteDeleteRemoteToken = (siteId: number, remoteTokenId: string) => apiRequest<{ ok: boolean }>(`/api/sites/${siteId}/remote-tokens/${encodeURIComponent(remoteTokenId)}`, { method: 'DELETE' })
+export const ApiTokenValue = (id: number) => apiRequest<{ id: number; token_key: string }>(`/api/tokens/${id}/value`)
 export const ApiSiteGetModels = (id: number) => apiRequest<{ models: ApiModel[] }>(`/api/sites/${id}/models`)
 export const ApiSiteGetCheckinLogs = (id: number) => apiRequest<CheckinLog[]>(`/api/sites/${id}/checkin-logs`)
 export const ApiSiteGetTaskLogs = (id: number) => apiRequest<Paginated<TaskLog>>(`/api/sites/${id}/task-logs`)
