@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS api_sites (
 -- 站点表索引
 CREATE INDEX IF NOT EXISTS idx_api_sites_enabled ON api_sites(enabled);  -- 按启用状态查询
 CREATE INDEX IF NOT EXISTS idx_api_sites_url ON api_sites(url);  -- 按 URL 查询
-CREATE UNIQUE INDEX IF NOT EXISTS idx_api_sites_url_account_label_unique ON api_sites(url, account_label) WHERE account_label IS NOT NULL AND account_label != '';  -- URL + 账户标签唯一约束
+CREATE UNIQUE INDEX IF NOT EXISTS idx_api_sites_url_name_unique ON api_sites(url, name);  -- URL + 站点名称唯一约束
 CREATE INDEX IF NOT EXISTS idx_api_sites_api_type ON api_sites(api_type);  -- 按 API 类型查询
 CREATE INDEX IF NOT EXISTS idx_api_sites_auto_checkin ON api_sites(auto_checkin);  -- 按自动签到状态查询
 CREATE INDEX IF NOT EXISTS idx_api_sites_last_checkin ON api_sites(last_checkin);  -- 按最后签到时间查询
@@ -167,9 +167,9 @@ CREATE TABLE IF NOT EXISTS app_settings (
 INSERT OR IGNORE INTO app_settings (key, value, type, label, description, category, sort_order, editable, options)
 VALUES
   -- 认证安全设置
-  ('auth.password_hash', 'moo80zKiLhD_jeLkIlPhhODo3BZKcpBLOkqm8QTrcMQ', 'secret', '登录密码哈希', '登录密码 PBKDF2 哈希，初始化默认密码为 change-this-password。', 'auth_secret', 1, 0, NULL),
+  ('auth.password_hash', 'uqgJnDIKp0-i_DXpcpD4cfDtHZ00Rayw43sHvHvMrBo', 'secret', '登录密码哈希', '登录密码 PBKDF2 哈希，初始化默认密码为 change-this-password。', 'auth_secret', 1, 0, NULL),
   ('auth.password_salt', 'Y2xvdWQtY2hlY2tpbi1kZQ', 'secret', '登录密码盐值', '登录密码 PBKDF2 salt。', 'auth_secret', 2, 0, NULL),
-  ('auth.password_iterations', '210000', 'secret', '登录密码迭代次数', '登录密码 PBKDF2 迭代次数。', 'auth_secret', 3, 0, NULL),
+  ('auth.password_iterations', '100000', 'secret', '登录密码迭代次数', '登录密码 PBKDF2 迭代次数。', 'auth_secret', 3, 0, NULL),
 
   -- 认证分类元数据
   ('meta.category.auth.title', '认证与会话', 'string', '分类标题', '设置页分组标题。', 'meta', 4, 0, NULL),

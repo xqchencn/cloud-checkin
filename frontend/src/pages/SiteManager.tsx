@@ -1,28 +1,23 @@
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, List, Settings } from 'lucide-react'
+import { ClipboardList, List, Settings, Waves } from 'lucide-react'
 import { ApiSite, ApiSiteGetTodayCheckinStatistics, ApiSiteList, TodayCheckinStats } from '../api/apiSite'
 import { SITE_FILTERS } from '../shared/constants'
 import { getPageFromPath } from '../shared/format'
-import type { ConfirmAction, PageKey, SiteFilter } from '../shared/types'
+import type { BatchProgress, ConfirmAction, PageKey, SiteFilter } from '../shared/types'
 import { AppChrome } from '../features/layout/AppChrome'
+import { HfSpacesPage } from '../features/hf-spaces/HfSpacesPage'
 import { LogsPage } from '../features/logs/LogsPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { SiteManagerModals } from '../features/site/SiteManagerModals'
 import { SiteActionMenu, SiteFilterMenu } from '../features/site/SiteMenus'
+import { BatchProgressPanel } from '../features/site/SiteCards'
 import { SiteListView } from '../features/site/SiteListView'
 import { useSiteBatchActions } from '../features/site/useSiteBatchActions'
 import { useSiteManagerActions } from '../features/site/useSiteManagerActions'
 import { useVisibleSiteRows } from '../features/site/useVisibleSiteRows'
 
-/**
- * URL 聚合视图存储键
- */
 const URL_AGGREGATED_VIEW_STORAGE_KEY = 'cloud-checkin:url-aggregated-view'
 
-/**
- * 读取 URL 聚合视图偏好设置
- * @returns boolean - 是否启用聚合视图
- */
 function readUrlAggregatedViewPreference(): boolean {
   try {
     return window.localStorage.getItem(URL_AGGREGATED_VIEW_STORAGE_KEY) === 'true'
@@ -31,10 +26,6 @@ function readUrlAggregatedViewPreference(): boolean {
   }
 }
 
-/**
- * 站点管理组件
- * @param onLogout - 登出回调函数
- */
 export function SiteManager({ onLogout }: { onLogout: () => void }) {
   const [sites, setSites] = useState<ApiSite[]>([])
   const [stats, setStats] = useState<TodayCheckinStats | null>(null)
@@ -48,6 +39,7 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
   const [deleteConfirmName, setDeleteConfirmName] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [busyKey, setBusyKey] = useState('')
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<SiteFilter>('all')
   const [urlAggregatedView, setUrlAggregatedView] = useState(readUrlAggregatedViewPreference)
@@ -59,14 +51,10 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
   const [logoutSubmitting, setLogoutSubmitting] = useState(false)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
 
-  /**
-   * 加载站点数据
-   */
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      // 列表和今日签到统计互不依赖，并行加载能让首页反馈更快。
       const [siteRows, todayStats] = await Promise.all([
         ApiSiteList(),
         ApiSiteGetTodayCheckinStatistics().catch(() => null)
@@ -81,7 +69,7 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     }
   }, [])
 
-  const { runBatchAll, runBatchBalance, runBatchCheckin, runBatchTokens } = useSiteBatchActions({ sites, load, setBusyKey, setError })
+  const { runBatchAll, runBatchBalance, runBatchCheckin, runBatchTokens } = useSiteBatchActions({ sites, load, setBusyKey, setError, setBatchProgress })
   const {
     action,
     closeMenus,
@@ -120,16 +108,10 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     setSaving
   })
 
-  /**
-   * 初始化加载站点数据
-   */
   useEffect(() => {
     void load()
   }, [load])
 
-  /**
-   * 同步页面状态从 URL
-   */
   useEffect(() => {
     function syncPageFromUrl() {
       closeMenus()
@@ -139,9 +121,6 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     return () => window.removeEventListener('popstate', syncPageFromUrl)
   }, [])
 
-  /**
-   * 处理菜单关闭逻辑
-   */
   useEffect(() => {
     if (!actionsOpen && !filterOpen) return
 
@@ -158,19 +137,15 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     function handlePointerDown(event: PointerEvent) {
       closeByTarget(event.target)
     }
-
     function handleFocusIn(event: FocusEvent) {
       closeByTarget(event.target)
     }
-
     function handleKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key === 'Escape') closeMenus()
     }
-
     document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('focusin', handleFocusIn)
     document.addEventListener('keydown', handleKeyDown)
-
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('focusin', handleFocusIn)
@@ -178,57 +153,27 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     }
   }, [actionsOpen, filterOpen])
 
-  /**
-   * 启用站点数量
-   */
   const enabledCount = useMemo(() => sites.filter(site => site.enabled).length, [sites])
-
-  /**
-   * 总余额
-   */
   const totalBalance = useMemo(() => sites.reduce((sum, site) => sum + Number(site.site_quota || 0), 0), [sites])
-
-  /**
-   * 已用余额
-   */
   const usedBalance = useMemo(() => sites.reduce((sum, site) => sum + Number(site.site_used_quota || 0), 0), [sites])
-
-  /**
-   * 可见站点列表
-   */
   const { visibleSites, visibleUrlRows } = useVisibleSiteRows({ sites, query, filter, urlAggregatedView })
-
-  /**
-   * 筛选标签
-   */
   const filterLabel = SITE_FILTERS.find(item => item.value === filter)?.label || '全部站点'
-
-  /**
-   * 空状态文本
-   */
   const emptyText = loading ? '加载中...' : sites.length ? '没有匹配的站点' : '暂无站点'
 
-  /**
-   * 页面元数据
-   */
   const pageMeta = {
     sites: { title: '站点管理', subtitle: '管理您的站点，自动签到与余额监控' },
     logs: { title: '日志', subtitle: '查看全局签到日志与任务执行记录' },
-    settings: { title: '系统设置', subtitle: '系统概览、任务维护与数据操作' }
+    settings: { title: '系统设置', subtitle: '系统概览、任务维护与数据操作' },
+    'hf-spaces': { title: 'HF 保活', subtitle: '管理 Hugging Face Spaces 的定时保活请求' }
   }[activePage]
 
-  /**
-   * 导航项
-   */
   const navItems: Array<{ key: PageKey; label: string; icon: ReactNode }> = [
     { key: 'sites', label: '站点管理', icon: <List size={18} /> },
+    { key: 'hf-spaces', label: 'HF 保活', icon: <Waves size={18} /> },
     { key: 'logs', label: '日志', icon: <ClipboardList size={18} /> },
     { key: 'settings', label: '系统设置', icon: <Settings size={18} /> }
   ]
 
-  /**
-   * 渲染筛选菜单
-   */
   function renderFilterMenu() {
     return (
       <SiteFilterMenu
@@ -242,9 +187,6 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     )
   }
 
-  /**
-   * 渲染操作菜单
-   */
   function renderActionMenu() {
     return (
       <SiteActionMenu
@@ -256,15 +198,12 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
         onBatchTokens={() => void runBatchTokens()}
         onConfirmAction={requestConfirmAction}
         onExport={() => { closeMenus(); void action('export', exportSites, '导出完成') }}
-        onImport={file => { closeMenus(); void action('import', () => importSites(file), '导入完成') }}
+        onImport={file => { void action('import', () => importSites(file), '导入完成').finally(closeMenus) }}
         onLogout={requestLogout}
       />
     )
   }
 
-  /**
-   * 切换 URL 聚合视图
-   */
   function toggleUrlAggregatedView() {
     setUrlAggregatedView(current => {
       const nextValue = !current
@@ -275,9 +214,6 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
     })
   }
 
-  /**
-   * 渲染组件
-   */
   return (
     <>
       <AppChrome
@@ -306,6 +242,7 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
         {activePage === 'sites' ? (
           <>
             {error ? <p className="mt-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+            {batchProgress ? <BatchProgressPanel progress={batchProgress} /> : null}
             <SiteListView
               sites={sites}
               stats={stats}
@@ -323,6 +260,7 @@ export function SiteManager({ onLogout }: { onLogout: () => void }) {
         ) : null}
 
         {activePage === 'logs' ? <LogsPage /> : null}
+        {activePage === 'hf-spaces' ? <HfSpacesPage /> : null}
         {activePage === 'settings' ? (
           <SettingsPage
             onOpenLogs={() => navigatePage('logs')}

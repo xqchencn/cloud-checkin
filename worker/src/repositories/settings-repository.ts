@@ -106,6 +106,20 @@ export function settingsRepository(db: D1Database) {
         WHERE key = ?
       `).bind(value, timestamp, key))
       await db.batch(statements)
+    },
+
+    /**
+     * 写入内部运行时状态
+     * @param key - 设置键
+     * @param value - 设置值
+     */
+    async setInternal(key: string, value: string): Promise<void> {
+      const timestamp = nowIso()
+      await db.prepare(`
+        INSERT INTO app_settings (key, value, type, label, description, category, sort_order, editable, options, created_at, updated_at)
+        VALUES (?, ?, 'secret', '内部运行状态', 'Worker 内部运行状态，不在设置页展示。', 'scheduler', 0, 0, NULL, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+      `).bind(key, value, timestamp, timestamp).run()
     }
   }
 }

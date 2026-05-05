@@ -173,7 +173,7 @@ export function useSiteManagerActions({
    * 导出站点
    */
   async function exportSites() {
-    const text = await ApiSiteExport()
+    const text = await ApiSiteExport(true)
     const blob = new Blob([text], { type: 'application/json;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')

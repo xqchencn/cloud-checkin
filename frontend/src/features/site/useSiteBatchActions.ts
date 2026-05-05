@@ -1,23 +1,27 @@
 import type { Dispatch, SetStateAction } from 'react'
 import {
   ApiSite,
-  ApiSiteBatchCheckin,
-  ApiSiteBatchRefreshBalance,
-  ApiSiteBatchSyncTokens,
-  BatchOperationResult
+  ApiSiteCheckin,
+  ApiSiteRefreshBalance,
+  ApiSiteSyncTokens
 } from '../../api/apiSite'
+import type { BatchProgress } from '../../shared/types'
 import { useToast } from '../../toast'
+
+type BatchCounts = {
+  success: number
+  failed: number
+  skipped: number
+}
 
 /**
  * 汇总批量操作结果
  * @param title - 操作标题
- * @param result - 操作结果
+ * @param counts - 批量计数
  * @returns 汇总后的字符串
  */
-function summarizeBatchOperation(title: string, result: BatchOperationResult): string {
-  const success = Number(result.success_count ?? result.success ?? 0)
-  const failed = Number(result.fail_count ?? result.failed_count ?? result.failed ?? 0)
-  const skipped = Number(result.skip_count ?? result.skipped_count ?? result.skipped ?? 0)
+function summarizeBatchOperation(title: string, counts: BatchCounts): string {
+  const { success, failed, skipped } = counts
   return `${title}完成：成功 ${success}，失败 ${failed}${skipped ? `，跳过 ${skipped}` : ''}`
 }
 
@@ -33,14 +37,62 @@ export function useSiteBatchActions({
   sites,
   load,
   setBusyKey,
-  setError
+  setError,
+  setBatchProgress
 }: {
   sites: ApiSite[]
   load: () => Promise<void>
   setBusyKey: Dispatch<SetStateAction<string>>
   setError: Dispatch<SetStateAction<string>>
+  setBatchProgress: Dispatch<SetStateAction<BatchProgress | null>>
 }) {
   const toast = useToast()
+
+  async function runProgressItems({
+    title,
+    phase,
+    targets,
+    total,
+    startCurrent = 0,
+    initialCounts = { success: 0, failed: 0, skipped: 0 },
+    run
+  }: {
+    title: string
+    phase: string
+    targets: ApiSite[]
+    total: number
+    startCurrent?: number
+    initialCounts?: BatchCounts
+    run: (site: ApiSite) => Promise<unknown>
+  }): Promise<BatchCounts> {
+    const counts = { ...initialCounts }
+    for (let index = 0; index < targets.length; index++) {
+      const site = targets[index]
+      setBatchProgress({
+        title,
+        phase,
+        current: startCurrent + index,
+        total,
+        currentName: site.name,
+        ...counts
+      })
+      try {
+        await run(site)
+        counts.success += 1
+      } catch {
+        counts.failed += 1
+      }
+      setBatchProgress({
+        title,
+        phase,
+        current: startCurrent + index + 1,
+        total,
+        currentName: site.name,
+        ...counts
+      })
+    }
+    return counts
+  }
 
   /**
    * 运行直接批量操作
@@ -55,19 +107,32 @@ export function useSiteBatchActions({
     title: string,
     targets: ApiSite[],
     emptyMessage: string,
-    run: (targets: ApiSite[]) => Promise<BatchOperationResult>
+    run: (site: ApiSite) => Promise<unknown>
   ) {
     if (!targets.length) {
+      setBatchProgress(null)
       toast.error(emptyMessage)
       return
     }
     setBusyKey(key)
     setError('')
+    setBatchProgress({
+      title,
+      phase: '正在执行',
+      current: 0,
+      total: targets.length,
+      currentName: targets[0]?.name || '',
+      success: 0,
+      failed: 0,
+      skipped: 0
+    })
     try {
-      const result = await run(targets)
-      toast.success(summarizeBatchOperation(title, result))
+      const counts = await runProgressItems({ title, phase: '正在执行', targets, total: targets.length, run })
+      setBatchProgress({ title, phase: '完成', current: targets.length, total: targets.length, currentName: '', ...counts })
+      toast.success(summarizeBatchOperation(title, counts))
       await load()
     } catch (err) {
+      setBatchProgress(current => current ? { ...current, phase: '执行失败', current: current.total, failed: Math.max(current.failed, current.total - current.success - current.skipped) } : null)
       toast.error(err instanceof Error ? err.message : `${title}失败`)
     } finally {
       setBusyKey('')
@@ -79,7 +144,7 @@ export function useSiteBatchActions({
    */
   async function runBatchBalance() {
     const targets = sites.filter(site => site.enabled)
-    await runDirectBatch('batch-balance', '批量查询余额', targets, '没有已启用的站点可查询余额', targets => ApiSiteBatchRefreshBalance(targets.map(site => site.id)))
+    await runDirectBatch('batch-balance', '批量查询余额', targets, '没有已启用的站点可查询余额', site => ApiSiteRefreshBalance(site.id))
   }
 
   /**
@@ -87,7 +152,7 @@ export function useSiteBatchActions({
    */
   async function runBatchCheckin() {
     const targets = sites.filter(site => site.enabled && site.auto_checkin)
-    await runDirectBatch('batch-checkin', '批量签到', targets, '没有已启用自动签到的站点', targets => ApiSiteBatchCheckin(targets.map(site => site.id)))
+    await runDirectBatch('batch-checkin', '批量签到', targets, '没有已启用自动签到的站点', site => ApiSiteCheckin(site.id))
   }
 
   /**
@@ -95,7 +160,7 @@ export function useSiteBatchActions({
    */
   async function runBatchTokens() {
     const targets = sites.filter(site => site.enabled)
-    await runDirectBatch('batch-tokens', '批量同步 Token', targets, '没有已启用的站点可同步 Token', targets => ApiSiteBatchSyncTokens(targets.map(site => site.id)))
+    await runDirectBatch('batch-tokens', '批量同步 Token', targets, '没有已启用的站点可同步 Token', site => ApiSiteSyncTokens(site.id))
   }
 
   /**
@@ -110,13 +175,55 @@ export function useSiteBatchActions({
     }
     setBusyKey('batch-all')
     setError('')
+    const total = enabledSites.length + checkinSites.length + enabledSites.length
+    setBatchProgress({
+      title: '批量全部',
+      phase: '正在查询余额',
+      current: 0,
+      total,
+      currentName: '',
+      success: 0,
+      failed: 0,
+      skipped: 0
+    })
     try {
-      const balance = await ApiSiteBatchRefreshBalance(enabledSites.map(site => site.id))
-      const checkin = await ApiSiteBatchCheckin(checkinSites.map(site => site.id))
-      const tokens = await ApiSiteBatchSyncTokens(enabledSites.map(site => site.id))
-      toast.success(`批量全部完成：${summarizeBatchOperation('余额', balance)}；${summarizeBatchOperation('签到', checkin)}；${summarizeBatchOperation('Token', tokens)}`)
+      const balanceCounts = await runProgressItems({
+        title: '批量全部',
+        phase: '正在查询余额',
+        targets: enabledSites,
+        total,
+        run: site => ApiSiteRefreshBalance(site.id)
+      })
+      const checkinCounts = await runProgressItems({
+        title: '批量全部',
+        phase: '正在签到',
+        targets: checkinSites,
+        total,
+        startCurrent: enabledSites.length,
+        initialCounts: balanceCounts,
+        run: site => ApiSiteCheckin(site.id)
+      })
+      const tokenCounts = await runProgressItems({
+        title: '批量全部',
+        phase: '正在同步 Token',
+        targets: enabledSites,
+        total,
+        startCurrent: enabledSites.length + checkinSites.length,
+        initialCounts: checkinCounts,
+        run: site => ApiSiteSyncTokens(site.id)
+      })
+      setBatchProgress({
+        title: '批量全部',
+        phase: '完成',
+        current: total,
+        total,
+        currentName: '',
+        ...tokenCounts
+      })
+      toast.success(summarizeBatchOperation('批量全部', tokenCounts))
       await load()
     } catch (err) {
+      setBatchProgress(current => current ? { ...current, phase: '执行失败', current: current.total, failed: Math.max(current.failed, current.total - current.success - current.skipped) } : null)
       toast.error(err instanceof Error ? err.message : '批量全部失败')
     } finally {
       setBusyKey('')

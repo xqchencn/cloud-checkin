@@ -39,6 +39,34 @@ export interface ApiSiteExportData {
   remarks: string
   /** 签到端点 */
   checkin_endpoint: string
+  /** 站点用户名 */
+  site_username?: string | null
+  /** 站点用户组 */
+  site_user_group?: string | null
+  /** 站点邀请码 */
+  site_aff_code?: string | null
+  /** 站点配额 */
+  site_quota?: number
+  /** 站点已用配额 */
+  site_used_quota?: number
+  /** 站点请求次数 */
+  site_request_count?: number
+  /** 站点邀请次数 */
+  site_aff_count?: number
+  /** 站点邀请配额 */
+  site_aff_quota?: number
+  /** 站点历史邀请配额 */
+  site_aff_history_quota?: number
+  /** 最后签到时间 */
+  last_checkin?: string | null
+  /** 最后签到状态 */
+  last_checkin_status?: string | null
+  /** 最后检查时间 */
+  last_check_time?: string | null
+  /** 最后检查状态 */
+  last_check_status?: string | null
+  /** 最后检查消息 */
+  last_check_message?: string | null
   /** Token 列表 */
   tokens?: ApiSiteToken[]
 }
@@ -232,6 +260,53 @@ function importSiteInput(row: ApiSiteExportData): ApiSiteInput {
 }
 
 /**
+ * 转换导入字符串字段
+ * @param value - 输入值
+ * @returns 字符串或 null
+ */
+function importNullableString(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  const text = String(value).trim()
+  return text ? text : null
+}
+
+/**
+ * 转换导入数字字段
+ * @param value - 输入值
+ * @returns 数字
+ */
+function importNumber(value: unknown): number {
+  if (value === undefined || value === null || value === '') return 0
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+/**
+ * 导入站点运行态字段
+ * @param row - 导出数据行
+ * @returns 可写入站点表的字段
+ */
+function importRuntimeFields(row: ApiSiteExportData): Record<string, unknown> {
+  const fields: Record<string, unknown> = {}
+  const has = (field: keyof ApiSiteExportData) => Object.prototype.hasOwnProperty.call(row, field)
+  if (has('site_username')) fields.site_username = importNullableString(row.site_username)
+  if (has('site_user_group')) fields.site_user_group = importNullableString(row.site_user_group)
+  if (has('site_aff_code')) fields.site_aff_code = importNullableString(row.site_aff_code)
+  if (has('site_quota')) fields.site_quota = importNumber(row.site_quota)
+  if (has('site_used_quota')) fields.site_used_quota = importNumber(row.site_used_quota)
+  if (has('site_request_count')) fields.site_request_count = importNumber(row.site_request_count)
+  if (has('site_aff_count')) fields.site_aff_count = importNumber(row.site_aff_count)
+  if (has('site_aff_quota')) fields.site_aff_quota = importNumber(row.site_aff_quota)
+  if (has('site_aff_history_quota')) fields.site_aff_history_quota = importNumber(row.site_aff_history_quota)
+  if (has('last_checkin')) fields.last_checkin = toIsoTime(row.last_checkin)
+  if (has('last_checkin_status')) fields.last_checkin_status = importNullableString(row.last_checkin_status)
+  if (has('last_check_time')) fields.last_check_time = toIsoTime(row.last_check_time)
+  if (has('last_check_status')) fields.last_check_status = importNullableString(row.last_check_status)
+  if (has('last_check_message')) fields.last_check_message = importNullableString(row.last_check_message)
+  return fields
+}
+
+/**
  * 站点服务工厂函数
  * @param env - 环境变量
  * @returns 站点服务对象
@@ -258,10 +333,7 @@ export function siteService(env: Env) {
    * @returns Promise<ApiSite | null> - 站点或 null
    */
   async function findImportTargetSite(row: ApiSiteExportData, input: ApiSiteInput): Promise<ApiSite | null> {
-    const hasAccountLabel = Object.prototype.hasOwnProperty.call(row, 'account_label')
-    return hasAccountLabel
-      ? repo.findByUrlAndAccountLabel(input.url, input.account_label || '')
-      : repo.findByNameAndUrl(input.name, input.url)
+    return repo.findByNameAndUrl(input.name, input.url)
   }
 
   return {
@@ -273,8 +345,8 @@ export function siteService(env: Env) {
     async create(inputLike: Partial<ApiSiteInput>): Promise<number> {
       const input = normalizeInput(inputLike)
       validateInput(input)
-      if (await repo.existsByUrlAndAccountLabel(input.url, input.account_label || '')) {
-        throw new ApiHttpError('DUPLICATE_SITE', '同 URL 同账号标签的站点已存在', 409)
+      if (await repo.existsByNameAndUrl(input.name, input.url)) {
+        throw new ApiHttpError('DUPLICATE_SITE', '同 URL 同名称的站点已存在', 409)
       }
       return repo.create(input)
     },
@@ -289,8 +361,8 @@ export function siteService(env: Env) {
       if (!current) throw new ApiHttpError('NOT_FOUND', '站点不存在', 404)
       const input = normalizeInput(inputLike)
       validateInput(input)
-      if (await repo.existsByUrlAndAccountLabel(input.url, input.account_label || '', id)) {
-        throw new ApiHttpError('DUPLICATE_SITE', '同 URL 同账号标签的站点已存在', 409)
+      if (await repo.existsByNameAndUrl(input.name, input.url, id)) {
+        throw new ApiHttpError('DUPLICATE_SITE', '同 URL 同名称的站点已存在', 409)
       }
       await repo.update(id, input)
     },
@@ -372,6 +444,20 @@ export function siteService(env: Env) {
           auto_checkin: site.auto_checkin,
           remarks: site.remarks || '',
           checkin_endpoint: site.checkin_endpoint || '',
+          site_username: site.site_username,
+          site_user_group: site.site_user_group,
+          site_aff_code: site.site_aff_code,
+          site_quota: site.site_quota,
+          site_used_quota: site.site_used_quota,
+          site_request_count: site.site_request_count,
+          site_aff_count: site.site_aff_count,
+          site_aff_quota: site.site_aff_quota,
+          site_aff_history_quota: site.site_aff_history_quota,
+          last_checkin: site.last_checkin,
+          last_checkin_status: site.last_checkin_status,
+          last_check_time: site.last_check_time,
+          last_check_status: site.last_check_status,
+          last_check_message: site.last_check_message,
           tokens: shouldIncludeSensitive ? siteTokens : []
         }
       }))
@@ -399,6 +485,7 @@ export function siteService(env: Env) {
             siteId = await repo.create(input)
             result.success_count++
           }
+          await repo.updateFields(siteId, importRuntimeFields(row))
           for (const token of row.tokens || []) {
             const tokenInput = await tokenInputFromImportForStorage(siteId, token)
             if (tokenInput) await tokens.upsert(tokenInput)

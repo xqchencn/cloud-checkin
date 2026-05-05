@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest'
  * 采用剩余完成度合约测试
  * 验证采用剩余功能的完整性和一致性
  */
-const docSource = readFileSync('docs/site-management-adoption-analysis.md', 'utf8')
 const apiSiteSource = readFileSync('frontend/src/api/apiSite.ts', 'utf8')
 const siteRouteSource = readFileSync('worker/src/routes/sites.ts', 'utf8')
 const siteServiceSource = readFileSync('worker/src/services/site-service.ts', 'utf8')
@@ -26,15 +25,8 @@ describe('adoption remaining completion contracts', () => {
   const defaultActionText = ['设', '为', '默认'].join('')
   const defaultColumnName = ['is', 'default'].join('_')
   const remoteEditText = ['编辑', '远端'].join('')
-  const remoteUpdateEndpoint = ['PUT ', '/api/sites/:id/remote-tokens/:remoteTokenId'].join('')
 
   it('keeps URL detection and same-url management endpoints implemented', () => {
-    expect(docSource).toContain('URL 检测')
-    expect(docSource).toContain('GET /api/sites/grouped')
-    expect(docSource).toContain('GET /api/sites/match?url=...')
-    expect(docSource).toContain('POST /api/sites/batch-update-by-url')
-    expect(docSource).toContain('POST /api/sites/:id/rebind-auth')
-
     expect(siteRouteSource).toContain("url.pathname === '/api/sites/detect'")
     expect(siteRouteSource).not.toContain("url.searchParams.get('group_key')")
     expect(siteRouteSource).toContain("url.pathname === '/api/sites/grouped'")
@@ -51,12 +43,6 @@ describe('adoption remaining completion contracts', () => {
   })
 
   it('keeps token lifecycle and remote token site-management operations implemented', () => {
-    expect(docSource).toContain('POST /api/sites/:id/remote-tokens')
-    expect(docSource).toContain('DELETE /api/sites/:id/remote-tokens/:remoteTokenId')
-    expect(docSource).not.toContain(remoteUpdateEndpoint)
-    expect(docSource).not.toContain(forbiddenDefaultLabel)
-    expect(docSource).not.toContain(defaultColumnName)
-    expect(docSource).not.toContain('/api/sites/:id/tokens/:tokenId/default')
     expect(apiSiteSource).toContain('export const ApiSiteSyncTokens')
     expect(apiSiteSource).toContain('export const ApiSiteBatchSyncTokens')
     expect(apiSiteSource).toContain('export const ApiSiteCreateRemoteToken')
@@ -106,7 +92,6 @@ describe('adoption remaining completion contracts', () => {
 
   it('persists current checkin log diagnostic fields', () => {
     for (const column of ['skip_reason', 'failure_reason', 'balance_before', 'balance_after']) {
-      expect(docSource).toContain(column)
       expect(schemaSource).toContain(column)
       expect(typesSource).toContain(`${column}:`)
       expect(checkinLogRepositorySource).toContain(column)

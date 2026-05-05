@@ -4,31 +4,6 @@ import type { PageKey } from '../../shared/types'
 import { formatMoney } from '../../shared/format'
 import { BrandMark, ButtonIcon } from '../../shared/ui'
 
-/**
- * 应用程序外壳组件
- * @param activePage - 活动页面
- * @param pageMeta - 页面元数据
- * @param navItems - 导航项
- * @param sidebarCollapsed - 侧边栏是否折叠
- * @param totalBalance - 总余额
- * @param usedBalance - 已用余额
- * @param query - 查询关键词
- * @param filterLabel - 筛选标签
- * @param urlAggregatedView - URL 聚合视图
- * @param loading - 是否加载中
- * @param children - 子元素
- * @param onToggleSidebar - 切换侧边栏回调
- * @param onNavigatePage - 导航页面回调
- * @param onRequestLogout - 请求登出回调
- * @param onOpenCreate - 打开创建回调
- * @param onQueryChange - 查询变更回调
- * @param onRefresh - 刷新回调
- * @param onToggleUrlAggregated - 切换 URL 聚合视图回调
- * @param onToggleFilterMenu - 切换筛选菜单回调
- * @param onToggleActionMenu - 切换操作菜单回调
- * @param renderFilterMenu - 渲染筛选菜单函数
- * @param renderActionMenu - 渲染操作菜单函数
- */
 export function AppChrome({
   activePage,
   pageMeta,
@@ -205,40 +180,6 @@ function MobileHeader({ activePage, pageMeta, navItems, query, loading, urlAggre
           </button>
         ) : null}
       </div>
-      <div className={`mt-5 flex gap-2 ${activePage === 'sites' ? '' : 'justify-end'}`}>
-        {activePage === 'sites' ? (
-          <>
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input className="field pl-10" value={query} onChange={event => onQueryChange(event.target.value)} placeholder="搜索站点名称或 URL" />
-            </div>
-            <button className="btn-icon h-11 w-11" onClick={onRefresh} disabled={loading} aria-label="刷新">
-              <RotateCcw size={18} />
-            </button>
-            <button
-              className={`${urlAggregatedView ? 'btn-icon bg-brand text-white hover:bg-brand' : 'btn-icon'} h-11 w-11`}
-              onClick={onToggleUrlAggregated}
-              aria-label="按 URL 聚合"
-              title="按 URL 聚合"
-              aria-pressed={urlAggregatedView}
-            >
-              <List size={18} />
-            </button>
-            <div className="relative" data-filter-menu-root="true">
-              <button className="btn-icon h-11 w-11" onClick={onToggleFilterMenu} aria-label="筛选">
-                <Filter size={19} />
-              </button>
-              {renderFilterMenu()}
-            </div>
-          </>
-        ) : null}
-        <div className="relative" data-actions-menu-root="true">
-          <button className="btn-icon h-11 w-11" onClick={onToggleActionMenu} aria-label="更多操作">
-            <Menu size={20} />
-          </button>
-          {renderActionMenu()}
-        </div>
-      </div>
       <nav className="mt-4 grid grid-cols-3 gap-2">
         {navItems.map(item => (
           <button
@@ -252,6 +193,33 @@ function MobileHeader({ activePage, pageMeta, navItems, query, loading, urlAggre
           </button>
         ))}
       </nav>
+      {activePage === 'sites' ? (
+        <div className="mt-4 flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input className="field pl-10" value={query} onChange={event => onQueryChange(event.target.value)} placeholder="搜索站点名称或 URL" />
+          </div>
+          <button className="btn-icon h-11 w-11" onClick={onRefresh} disabled={loading} aria-label="刷新">
+            <RotateCcw size={18} />
+          </button>
+          <button
+            className={`${urlAggregatedView ? 'btn-icon bg-brand text-white hover:bg-brand' : 'btn-icon'} h-11 w-11`}
+            onClick={onToggleUrlAggregated}
+            aria-label="按 URL 聚合"
+            title="按 URL 聚合"
+            aria-pressed={urlAggregatedView}
+          >
+            <List size={18} />
+          </button>
+          <div className="relative" data-filter-menu-root="true">
+            <button className="btn-icon h-11 w-11" onClick={onToggleFilterMenu} aria-label="筛选">
+              <Filter size={19} />
+            </button>
+            {renderFilterMenu()}
+          </div>
+          <SiteActionMenuButton mobile onToggleActionMenu={onToggleActionMenu} renderActionMenu={renderActionMenu} />
+        </div>
+      ) : null}
     </header>
   )
 }
@@ -279,6 +247,7 @@ function DesktopHeader({ activePage, pageMeta, query, filterLabel, urlAggregated
         <p className="mt-2 text-sm text-slate-500">{pageMeta.subtitle}</p>
       </div>
       <div className="flex items-center gap-3">
+        {activePage === 'hf-spaces' ? <div id="hf-spaces-desktop-header-actions" className="flex items-center gap-2" /> : null}
         {activePage === 'sites' ? (
           <>
             <div className="relative w-[340px]">
@@ -299,12 +268,7 @@ function DesktopHeader({ activePage, pageMeta, query, filterLabel, urlAggregated
             </div>
           </>
         ) : null}
-        <div className="relative" data-actions-menu-root="true">
-          <button className="btn h-11 px-3 xl:px-4" onClick={onToggleActionMenu} title="更多操作" aria-label="更多操作">
-            <ButtonIcon><MoreHorizontal size={16} /></ButtonIcon><span className="hidden xl:inline">更多</span>
-          </button>
-          {renderActionMenu()}
-        </div>
+        {activePage === 'sites' ? <SiteActionMenuButton onToggleActionMenu={onToggleActionMenu} renderActionMenu={renderActionMenu} /> : null}
         {activePage === 'sites' ? (
           <button className="btn btn-primary h-11 px-3 xl:px-5" onClick={onOpenCreate} title="新增站点" aria-label="新增站点">
             <ButtonIcon><Plus size={17} /></ButtonIcon><span className="hidden xl:inline">新增站点</span>
@@ -312,5 +276,20 @@ function DesktopHeader({ activePage, pageMeta, query, filterLabel, urlAggregated
         ) : null}
       </div>
     </header>
+  )
+}
+
+function SiteActionMenuButton({ mobile = false, onToggleActionMenu, renderActionMenu }: {
+  mobile?: boolean
+  onToggleActionMenu: () => void
+  renderActionMenu: () => ReactNode
+}) {
+  return (
+    <div className="relative" data-actions-menu-root="true">
+      <button className={mobile ? 'btn-icon h-11 w-11' : 'btn h-11 px-3 xl:px-4'} onClick={onToggleActionMenu} title="更多操作" aria-label="更多操作">
+        {mobile ? <Menu size={20} /> : <><ButtonIcon><MoreHorizontal size={16} /></ButtonIcon><span className="hidden xl:inline">更多</span></>}
+      </button>
+      {renderActionMenu()}
+    </div>
   )
 }

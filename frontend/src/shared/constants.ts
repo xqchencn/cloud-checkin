@@ -12,6 +12,7 @@ export const SITE_TYPES = ['NewApi', 'OneApi', 'OneHub', 'RixApi', 'Veloera', 'A
  */
 export const PAGE_PATHS: Record<PageKey, string> = {
   sites: '/',
+  'hf-spaces': '/hf-spaces',
   logs: '/logs',
   settings: '/settings'
 }

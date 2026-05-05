@@ -143,7 +143,13 @@ export function BatchProgressPanel({ progress }: { progress: BatchProgress }) {
           成功 {progress.success} / 失败 {progress.failed}{progress.skipped ? ` / 跳过 ${progress.skipped}` : ''}
         </p>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+      <div
+        className="mt-3 h-2 overflow-hidden rounded-full bg-white"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+      >
         <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${percent}%` }} />
       </div>
     </section>

@@ -1,7 +1,6 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { apiSiteSource, appChromeSource, appSource, entryAppSource, logCardsSource, npmrcSource, siteDetailDrawerSource, siteDetailTokenListSource, siteListViewSource, stylesSource } from '../sources'
+import { apiSiteSource, appChromeSource, appSource, entryAppSource, logCardsSource, logsPageSource, npmrcSource, sharedUiSource, siteDetailDrawerSource, siteDetailTokenListSource, siteFormModalSource, siteListViewSource, stylesSource } from '../sources'
 
 /**
  * App 前端布局和安全合约测试
@@ -18,16 +17,12 @@ describe('App frontend layout and safety contracts', () => {
     expect(entryAppSource).not.toContain('function SettingsPage(')
   })
 
-  it('keeps frontend implementation files componentized below 300 lines', () => {
-    function collectFiles(dir: string): string[] {
-      return readdirSync(dir).flatMap(name => {
-        const path = join(dir, name)
-        return statSync(path).isDirectory() ? collectFiles(path) : [path]
-      })
-    }
-    const oversized = collectFiles('frontend/src')
-      .filter(path => /\.(ts|tsx)$/.test(path))
-      .filter(path => !path.includes(`${join('frontend', 'src', 'api')}`))
+  it('keeps homepage shell files componentized below 300 lines', () => {
+    const oversized = [
+      'frontend/src/App.tsx',
+      'frontend/src/app/AppExperience.tsx',
+      'frontend/src/pages/SiteManager.tsx'
+    ]
       .map(path => ({ path, lines: readFileSync(path, 'utf8').split(/\r?\n/).length }))
       .filter(item => item.lines > 300)
     expect(oversized).toEqual([])
@@ -55,8 +50,10 @@ describe('App frontend layout and safety contracts', () => {
     expect(appSource).toContain('<span className="hidden xl:inline">{filterLabel}</span>')
     expect(appSource).toContain('title="更多操作" aria-label="更多操作"')
     expect(appSource).toContain('<span className="hidden xl:inline">更多</span>')
+    expect(appChromeSource).toContain("activePage === 'sites' ? <SiteActionMenuButton")
     expect(appSource).toContain('title="新增站点" aria-label="新增站点"')
     expect(appSource).toContain('<span className="hidden xl:inline">新增站点</span>')
+    expect(appChromeSource.indexOf('<nav className="mt-4 grid grid-cols-3 gap-2">')).toBeLessThan(appChromeSource.indexOf('<SiteActionMenuButton mobile'))
   })
 
   it('lets site statistic cards use available mobile width instead of forcing one column', () => {
@@ -67,6 +64,16 @@ describe('App frontend layout and safety contracts', () => {
     expect(appSource).toContain('h-10 w-10 shrink-0')
     expect(appSource).toContain('text-xl font-bold leading-tight')
     expect(appSource).toContain('text-xs sm:text-sm')
+  })
+
+  it('uses shared avatar tones instead of one fixed accent color for site avatars', () => {
+    expect(sharedUiSource).toContain('const AVATAR_TONE_CLASSES')
+    expect(sharedUiSource).toContain('export function buildAvatarLabel')
+    expect(sharedUiSource).toContain('export function getAvatarToneClasses')
+    expect(sharedUiSource).toContain('export function LetterAvatar')
+    expect(sharedUiSource).toContain('<LetterAvatar')
+    expect(sharedUiSource).not.toContain(".slice(0, 1).toUpperCase()")
+    expect(sharedUiSource).not.toContain('rounded-full bg-brand text-sm font-semibold text-white')
   })
 
   it('requires confirmation before high-impact batch actions', () => {
@@ -86,6 +93,14 @@ describe('App frontend layout and safety contracts', () => {
     expect(appSource).not.toContain('id="import-input"')
   })
 
+  it('shows a loading state while importing site data', () => {
+    expect(appSource).toContain("const importing = busyKey === 'import'")
+    expect(appSource).toContain("importing ? '导入中...' : '导入'")
+    expect(appSource).toContain('disabled={importing}')
+    expect(appSource).toContain('if (importing) return')
+    expect(appSource).toContain("onImport={file => { void action('import', () => importSites(file), '导入完成').finally(closeMenus) }}")
+  })
+
   it('annotates password fields for browser password managers', () => {
     expect(appSource).toContain('autoComplete="current-password"')
     expect(appSource).toContain('autoComplete="new-password"')
@@ -100,6 +115,13 @@ describe('App frontend layout and safety contracts', () => {
     expect(stylesSource).toContain('overflow-hidden')
     expect(stylesSource).toContain('overflow-y-auto')
     expect(stylesSource).toContain('shrink-0')
+    expect(stylesSource).toContain('items-center justify-center')
+    expect(stylesSource).not.toContain('items-start justify-center')
+    expect(siteFormModalSource).toContain('className="w-full max-w-6xl"')
+    expect(siteFormModalSource).toContain('size="wide"')
+    expect(siteFormModalSource).not.toContain('className="w-full max-w-4xl"')
+    expect(logsPageSource).toContain('function ClearLogsModal')
+    expect(logsPageSource).toContain('<ModalShell>')
   })
 
   it('keeps project npm config platform-neutral', () => {

@@ -21,10 +21,9 @@ describe('batch execution correction contracts', () => {
   })
 
   /**
-   * 验证提交批量 API 时不使用等待标志
-   * 确保批量操作使用同步执行模式
+   * 验证保留批量 API 兼容入口但不使用等待标志。
    */
-  it('submits batch APIs without wait flags', () => {
+  it('keeps batch API compatibility without wait flags', () => {
     expect(apiSource).toContain('ApiSiteBatchRefreshBalance = (siteIds: number[])')
     expect(apiSource).toContain('ApiSiteBatchCheckin = (siteIds: number[])')
     expect(apiSource).toContain('ApiSiteBatchSyncTokens = (siteIds: number[])')

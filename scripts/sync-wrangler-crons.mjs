@@ -10,14 +10,14 @@ function parseCrons(source) {
   if (!match) throw new Error('wrangler.toml 中未找到 [triggers].crons 配置')
   // Worker 运行时和设置页展示都只消费这里解析出来的值，避免再手写第二份业务 Cron。
   const values = [...match[1].matchAll(/"([^"]+)"/g)].map(item => item[1])
-  if (values.length < 2) throw new Error('wrangler.toml 中的 crons 至少需要两条：签到任务和历史记录清理任务')
+  if (values.length < 3) throw new Error('wrangler.toml 中的 crons 至少需要三条：签到任务、HF 保活任务和历史记录清理任务')
   return values
 }
 
 async function main() {
   const wrangler = await readFile(wranglerPath, 'utf8')
-  const [checkinCron, cleanupCron] = parseCrons(wrangler)
-  const content = `// Generated from wrangler.toml by scripts/sync-wrangler-crons.mjs\nexport const WRANGLER_CHECKIN_CRON = ${JSON.stringify(checkinCron)} as const\nexport const WRANGLER_CLEANUP_CRON = ${JSON.stringify(cleanupCron)} as const\n`
+  const [checkinCron, hfKeepaliveCron, cleanupCron] = parseCrons(wrangler)
+  const content = `// Generated from wrangler.toml by scripts/sync-wrangler-crons.mjs\nexport const WRANGLER_CHECKIN_CRON = ${JSON.stringify(checkinCron)} as const\nexport const WRANGLER_HF_KEEPALIVE_CRON = ${JSON.stringify(hfKeepaliveCron)} as const\nexport const WRANGLER_CLEANUP_CRON = ${JSON.stringify(cleanupCron)} as const\n`
   await mkdir(path.dirname(outputPath), { recursive: true })
   await writeFile(outputPath, content, 'utf8')
 }

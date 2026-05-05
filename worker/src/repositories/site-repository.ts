@@ -48,6 +48,30 @@ export function siteRepository(db: D1Database) {
     async updateFields(id: number, fields: Record<string, unknown>): Promise<void> {
       const entries = Object.entries(fields).filter(([, value]) => value !== undefined)
       if (entries.length === 0) return
+      const allowedFields = new Set([
+        'enabled',
+        'auto_checkin',
+        'sort_order',
+        'remarks',
+        'checkin_endpoint',
+        'site_username',
+        'site_user_group',
+        'site_aff_code',
+        'site_quota',
+        'site_used_quota',
+        'site_request_count',
+        'site_aff_count',
+        'site_aff_quota',
+        'site_aff_history_quota',
+        'last_checkin',
+        'last_checkin_status',
+        'last_check_time',
+        'last_check_status',
+        'last_check_message'
+      ])
+      for (const [key] of entries) {
+        if (!allowedFields.has(key)) throw new Error(`Unsupported api_sites field: ${key}`)
+      }
       const set = entries.map(([key]) => `${key} = ?`).join(', ')
       const args = entries.map(([, value]) => value)
       await db.prepare(`UPDATE api_sites SET ${set}, updated_at = ? WHERE id = ?`).bind(...args, nowIso(), id).run()
@@ -105,18 +129,18 @@ export function siteRepository(db: D1Database) {
     },
 
     /**
-     * 检查站点是否存在
+     * 按名称和 URL 检查站点是否存在
+     * @param name - 站点名称
      * @param url - 站点 URL
-     * @param accountLabel - 账号标签
      * @param excludeId - 排除的站点 ID
      * @returns Promise<boolean> - 是否存在
      */
-    async existsByUrlAndAccountLabel(url: string, accountLabel: string, excludeId?: number): Promise<boolean> {
+    async existsByNameAndUrl(name: string, url: string, excludeId?: number): Promise<boolean> {
       const query = excludeId
-        ? "SELECT COUNT(*) AS count FROM api_sites WHERE (url = ? OR url = ?) AND COALESCE(account_label, '') = ? AND id != ?"
-        : "SELECT COUNT(*) AS count FROM api_sites WHERE (url = ? OR url = ?) AND COALESCE(account_label, '') = ?"
+        ? 'SELECT COUNT(*) AS count FROM api_sites WHERE name = ? AND (url = ? OR url = ?) AND id != ?'
+        : 'SELECT COUNT(*) AS count FROM api_sites WHERE name = ? AND (url = ? OR url = ?)'
       const normalizedUrl = url.trim().replace(/\/+$/, '')
-      const args = excludeId ? [normalizedUrl, normalizedUrl.replace(/\/+$/, ''), accountLabel.trim(), excludeId] : [normalizedUrl, normalizedUrl.replace(/\/+$/, ''), accountLabel.trim()]
+      const args = excludeId ? [name.trim(), normalizedUrl, normalizedUrl.replace(/\/+$/, ''), excludeId] : [name.trim(), normalizedUrl, normalizedUrl.replace(/\/+$/, '')]
       const row = await one<{ count: number }>(db.prepare(query).bind(...args))
       return Number(row?.count ?? 0) > 0
     },
@@ -139,17 +163,6 @@ export function siteRepository(db: D1Database) {
      */
     async findByNameAndUrl(name: string, normalizedUrl: string): Promise<ApiSite | null> {
       const row = await one<Record<string, unknown>>(db.prepare('SELECT * FROM api_sites WHERE name = ? AND (url = ? OR url = ?) ORDER BY id DESC LIMIT 1').bind(name, normalizedUrl, normalizedUrl.replace(/\/+$/, '')))
-      return row ? toApiSite(row) : null
-    },
-
-    /**
-     * 按 URL 和账号标签查找站点
-     * @param normalizedUrl - 规范化后的 URL
-     * @param accountLabel - 账号标签
-     * @returns Promise<ApiSite | null> - 站点或 null
-     */
-    async findByUrlAndAccountLabel(normalizedUrl: string, accountLabel: string): Promise<ApiSite | null> {
-      const row = await one<Record<string, unknown>>(db.prepare("SELECT * FROM api_sites WHERE (url = ? OR url = ?) AND COALESCE(account_label, '') = ? ORDER BY id DESC LIMIT 1").bind(normalizedUrl, normalizedUrl.replace(/\/+$/, ''), accountLabel.trim()))
       return row ? toApiSite(row) : null
     },
 

@@ -1,25 +1,30 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, CalendarCheck, FileText, RotateCcw, Trash2 } from 'lucide-react'
 import { ApiCheckinLogs, ApiClearCheckinLogs, ApiClearTaskLogs, ApiTaskLogs, CheckinLog, Paginated, TaskLog } from '../../api/apiSite'
+import { ApiHfSpacesLogs, HfSpaceKeepaliveLog } from '../../api/apiHfSpaces'
 import { CHECKIN_LOG_WITH_SITE_COLUMNS, CHECKIN_LOG_WITH_SITE_HEADERS, TASK_LOG_WITH_SITE_COLUMNS, TASK_LOG_WITH_SITE_HEADERS, buildCheckinLogRows, buildTaskLogRows } from '../../components/logs/LogTables'
 import { LogMobileCards } from '../../components/logs/LogCards'
 import { SimpleTable } from '../../shared/SimpleTable'
-import { ButtonIcon, DialogCard, ModalShell } from '../../shared/ui'
+import { ButtonIcon, DialogCard, ModalShell, ToneBadge } from '../../shared/ui'
 import { useLogPageSize } from '../../shared/useLogPageSize'
 import { useToast } from '../../toast'
+import { formatDate, logStatusTone } from '../../shared/format'
+
+type LogTab = 'checkin' | 'task' | 'hf'
 
 /**
  * 日志页面组件
  */
 export function LogsPage() {
   const { pageSize, listRef, paginationRef } = useLogPageSize()
-  const [tab, setTab] = useState<'checkin' | 'task'>('checkin')
+  const [tab, setTab] = useState<LogTab>('checkin')
   const [status, setStatus] = useState('all')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [clearTarget, setClearTarget] = useState<'checkin' | 'task' | null>(null)
   const [checkinData, setCheckinData] = useState<Paginated<CheckinLog>>({ logs: [], total: 0, page: 1, page_size: pageSize, total_pages: 0 })
   const [taskData, setTaskData] = useState<Paginated<TaskLog>>({ logs: [], total: 0, page: 1, page_size: pageSize, total_pages: 0 })
+  const [hfData, setHfData] = useState<Paginated<HfSpaceKeepaliveLog>>({ logs: [], total: 0, page: 1, page_size: pageSize, total_pages: 0 })
   const toast = useToast()
 
   /**
@@ -30,7 +35,8 @@ export function LogsPage() {
     try {
       const params = { page, page_size: pageSize, status: status === 'all' ? undefined : status }
       if (tab === 'checkin') setCheckinData(await ApiCheckinLogs(params))
-      else setTaskData(await ApiTaskLogs(params))
+      else if (tab === 'task') setTaskData(await ApiTaskLogs(params))
+      else setHfData(await ApiHfSpacesLogs(params))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '日志加载失败')
     } finally {
@@ -71,7 +77,7 @@ export function LogsPage() {
     }
   }
 
-  const data = tab === 'checkin' ? checkinData : taskData
+  const data = tab === 'checkin' ? checkinData : tab === 'task' ? taskData : hfData
   const statusOptions = tab === 'checkin'
     ? [
       ['all', '全部状态'],
@@ -80,15 +86,28 @@ export function LogsPage() {
       ['failed', '失败'],
       ['error', '错误']
     ]
-    : [
+    : tab === 'task' ? [
       ['all', '全部状态'],
       ['success', '成功'],
       ['failed', '失败'],
       ['pending', '等待']
+    ] : [
+      ['all', '全部状态'],
+      ['success', '成功'],
+      ['failed', '失败']
     ]
-  const rows = tab === 'checkin' ? buildCheckinLogRows(checkinData.logs) : buildTaskLogRows(taskData.logs)
-  const headers = tab === 'checkin' ? CHECKIN_LOG_WITH_SITE_HEADERS : TASK_LOG_WITH_SITE_HEADERS
-  const columnClassNames = tab === 'checkin' ? CHECKIN_LOG_WITH_SITE_COLUMNS : TASK_LOG_WITH_SITE_COLUMNS
+  const hfRows = hfData.logs.map(log => [
+    log.username || '-',
+    log.space_id,
+    <ToneBadge tone={logStatusTone(log.status)}>{log.status === 'success' ? '成功' : '失败'}</ToneBadge>,
+    log.http_status ?? '-',
+    log.latency_ms == null ? '-' : `${log.latency_ms}ms`,
+    formatDate(log.created_at),
+    log.error || log.response_excerpt || '-'
+  ])
+  const rows = tab === 'checkin' ? buildCheckinLogRows(checkinData.logs) : tab === 'task' ? buildTaskLogRows(taskData.logs) : hfRows
+  const headers = tab === 'checkin' ? CHECKIN_LOG_WITH_SITE_HEADERS : tab === 'task' ? TASK_LOG_WITH_SITE_HEADERS : ['用户', 'Space', '状态', 'HTTP', '耗时', '时间', '消息']
+  const columnClassNames = tab === 'checkin' ? CHECKIN_LOG_WITH_SITE_COLUMNS : tab === 'task' ? TASK_LOG_WITH_SITE_COLUMNS : ['w-[12%]', 'w-[20%]', 'w-[10%]', 'w-[8%]', 'w-[10%]', 'w-[18%]', 'w-[22%]']
 
   return (
     <section className="mt-6 space-y-4">
@@ -101,6 +120,9 @@ export function LogsPage() {
             <button className={`${tab === 'task' ? 'btn btn-primary' : 'btn'} w-full sm:w-auto`} onClick={() => { setTab('task'); setStatus('all'); setPage(1) }}>
               <ButtonIcon><FileText size={16} /></ButtonIcon>定时任务日志
             </button>
+            <button className={`${tab === 'hf' ? 'btn btn-primary' : 'btn'} w-full sm:w-auto`} onClick={() => { setTab('hf'); setStatus('all'); setPage(1) }}>
+              <ButtonIcon><FileText size={16} /></ButtonIcon>HF 保活日志
+            </button>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <select className="field w-full sm:w-40" value={status} onChange={event => { setStatus(event.target.value); setPage(1) }}>
@@ -109,15 +131,15 @@ export function LogsPage() {
             <button className="btn w-full sm:w-auto" onClick={() => void loadLogs()} disabled={loading}>
               <ButtonIcon><RotateCcw size={16} /></ButtonIcon>{loading ? '刷新中...' : '刷新'}
             </button>
-            <button className="btn btn-danger w-full sm:w-auto" onClick={() => setClearTarget(tab)}>
+            {tab !== 'hf' ? <button className="btn btn-danger w-full sm:w-auto" onClick={() => setClearTarget(tab)}>
               <ButtonIcon><Trash2 size={16} /></ButtonIcon>{tab === 'checkin' ? '清空签到日志' : '清空定时任务日志'}
-            </button>
+            </button> : null}
           </div>
         </div>
       </div>
 
       <div ref={listRef}>
-        <LogMobileCards tab={tab} checkinLogs={checkinData.logs} taskLogs={taskData.logs} />
+        {tab === 'hf' ? null : <LogMobileCards tab={tab} checkinLogs={checkinData.logs} taskLogs={taskData.logs} />}
         <SimpleTable headers={headers} rows={rows} mobile="none" columnClassNames={columnClassNames} />
       </div>
       <div ref={paginationRef} className="flex flex-col gap-3 rounded-lg border border-line bg-white px-4 py-3 text-sm text-slate-600 shadow-sm sm:flex-row sm:items-center sm:justify-between">

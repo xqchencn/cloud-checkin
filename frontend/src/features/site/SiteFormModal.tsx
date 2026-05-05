@@ -110,13 +110,13 @@ export function SiteFormModal({ site, open, saving, onClose, onSaved }: {
 
   return (
     <ModalShell>
-      <form onSubmit={event => void submit(event)} className="w-full max-w-4xl">
+      <form onSubmit={event => void submit(event)} className="w-full max-w-6xl">
         <DialogCard
           title={site ? '编辑站点' : '新增站点'}
           description="按当前选择的认证方式保存对应凭证；不会加密、替换或写入占位符。"
           icon={<Globe2 size={18} />}
           onClose={onClose}
-          size="xl"
+          size="wide"
           footer={
             <>
               <button type="button" className="btn" onClick={onClose}>取消</button>

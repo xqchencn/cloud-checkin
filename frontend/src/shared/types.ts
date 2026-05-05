@@ -4,7 +4,7 @@ import type { ApiSite, SiteFormPayload } from '../api/apiSite'
 /**
  * 页面键类型
  */
-export type PageKey = 'sites' | 'logs' | 'settings'
+export type PageKey = 'sites' | 'logs' | 'settings' | 'hf-spaces'
 
 /**
  * 站点筛选类型

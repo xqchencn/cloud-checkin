@@ -3,6 +3,7 @@ import { jsonError, jsonOk, toErrorResponse } from './response'
 import { handleAuth } from './routes/auth'
 import { handleCheckinRoutes } from './routes/checkin'
 import { handleLogRoutes } from './routes/logs'
+import { handleHfSpaceRoutes } from './routes/hf-spaces'
 import { handleModelRoutes } from './routes/models'
 import { handleSettingsRoutes } from './routes/settings'
 import { handleSiteRoutes } from './routes/sites'
@@ -33,6 +34,10 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
   // 检查用户是否已认证
   if (!(await isAuthenticated(request, env))) {
     return jsonError('UNAUTHORIZED', '请先登录', 401)
+  }
+
+  if (url.pathname.startsWith('/api/hf-spaces')) {
+    return handleHfSpaceRoutes(request, env, ctx)
   }
 
   // 路由按”更具体优先”匹配，避免 `/api/sites/...` 抢走日志和设置这类子资源接口。

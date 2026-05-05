@@ -544,7 +544,7 @@ export const ApiSiteGetTodayCheckinStatistics = () => apiRequest<TodayCheckinSta
 /**
  * 导出站点数据
  */
-export const ApiSiteExport = () => apiRequest<string>('/api/sites/export')
+export const ApiSiteExport = (includeSensitive = true) => apiRequest<string>(`/api/sites/export${includeSensitive ? '?include_sensitive=true' : ''}`)
 
 /**
  * 导入站点数据

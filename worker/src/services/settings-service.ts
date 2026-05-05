@@ -1,13 +1,11 @@
 import { settingsRepository } from '../repositories/settings-repository'
-import { WRANGLER_CHECKIN_CRON, WRANGLER_CLEANUP_CRON } from '../../../shared/generated/wrangler-crons'
+import { WRANGLER_CHECKIN_CRON, WRANGLER_CLEANUP_CRON, WRANGLER_HF_KEEPALIVE_CRON } from '../../../shared/generated/wrangler-crons'
 import type { Env, PasswordUpdatePayload, PublicAppSettings, PublicSettingItem, RuntimeAppSettings, SettingsUpdatePayload } from '../types'
 
 /** 密码迭代次数 */
-const PASSWORD_ITERATIONS = 210000
+const PASSWORD_ITERATIONS = 100000
 /** 密钥长度（比特） */
 const PASSWORD_KEY_LENGTH_BITS = 256
-/** 默认初始密码 */
-export const DEFAULT_INITIAL_PASSWORD = 'change-this-password'
 
 /** 设置键常量 */
 export const SETTING_KEYS = {
@@ -116,6 +114,7 @@ function safeEqual(left: string, right: string): boolean {
 function getConfiguredCron(): RuntimeAppSettings['scheduler'] {
   return {
     checkin_cron: WRANGLER_CHECKIN_CRON,
+    hf_keepalive_cron: WRANGLER_HF_KEEPALIVE_CRON,
     cleanup_cron: WRANGLER_CLEANUP_CRON
   }
 }
@@ -185,6 +184,18 @@ function buildReadonlySchedulerItems(): PublicSettingItem[] {
       sort_order: 20,
       editable: false,
       options: { placeholder: scheduler.checkin_cron },
+      updated_at: null
+    },
+    {
+      key: 'scheduler.hf_keepalive_cron',
+      value: scheduler.hf_keepalive_cron,
+      type: 'cron',
+      label: 'HF Spaces 保活 Cron',
+      description: '由 wrangler.toml 管理，页面只读显示。每 4 小时请求已启用的 HF Space 保活地址。',
+      category: 'scheduler',
+      sort_order: 25,
+      editable: false,
+      options: { placeholder: scheduler.hf_keepalive_cron },
       updated_at: null
     },
     {
@@ -299,8 +310,7 @@ export function settingsService(env: Env) {
       const hash = values[SETTING_KEYS.passwordHash]
       const salt = values[SETTING_KEYS.passwordSalt]
       if (!hash || !salt) return false
-      // 迭代次数和 salt 一起保存在 D1，后续如果调整密码策略，不需要改旧密码的验证流程。
-      const iterations = parseNumber(values[SETTING_KEYS.passwordIterations], PASSWORD_ITERATIONS, 1, 1000000)
+      const iterations = parseNumber(values[SETTING_KEYS.passwordIterations], PASSWORD_ITERATIONS, 1, PASSWORD_ITERATIONS)
       const derived = await derivePasswordHash(password, base64UrlToBytes(salt), iterations)
       return safeEqual(derived, hash)
     }

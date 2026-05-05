@@ -40,6 +40,44 @@ export function ButtonIcon({ children }: { children: ReactNode }) {
   return <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">{children}</span>
 }
 
+const AVATAR_TONE_CLASSES = [
+  'from-blue-500 to-cyan-600',
+  'from-emerald-500 to-teal-600',
+  'from-orange-500 to-amber-600',
+  'from-fuchsia-500 to-pink-600',
+  'from-violet-500 to-indigo-600',
+  'from-rose-500 to-red-600',
+  'from-sky-500 to-blue-700',
+  'from-lime-500 to-green-600'
+]
+
+export function getAvatarToneClasses(seed: string) {
+  const source = seed.trim().toUpperCase() || '?'
+  const code = source.charCodeAt(0) || 0
+  return AVATAR_TONE_CLASSES[code % AVATAR_TONE_CLASSES.length]
+}
+
+export function buildAvatarLabel(seed: string): string {
+  const source = seed.trim()
+  if (!source) return '?'
+  const normalized = source.replace(/^https?:\/\//i, '').replace(/^www\./i, '').trim()
+  const first = normalized[0] || source[0] || '?'
+  if (/[\u3400-\u9fff]/.test(first)) return first
+  return normalized.replace(/\s+/g, '').slice(0, 2).toUpperCase() || '?'
+}
+
+export function LetterAvatar({ seed, label, className = 'h-11 w-11 text-sm font-semibold' }: {
+  seed: string
+  label: string
+  className?: string
+}) {
+  return (
+    <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-soft ${getAvatarToneClasses(seed)} ${className}`}>
+      {label}
+    </span>
+  )
+}
+
 /**
  * 品牌标识组件
  * @param compact - 是否紧凑模式
@@ -85,12 +123,13 @@ export function DialogCard({
   onClose: () => void
   children: ReactNode
   footer: ReactNode
-  size?: 'md' | 'lg' | 'xl'
+  size?: 'md' | 'lg' | 'xl' | 'wide'
 }) {
   const maxWidth = {
     md: 'max-w-md',
     lg: 'max-w-2xl',
-    xl: 'max-w-4xl'
+    xl: 'max-w-4xl',
+    wide: 'max-w-6xl'
   }[size]
 
   return (
@@ -117,9 +156,7 @@ export function DialogCard({
  */
 export function SiteAvatar({ site }: { site: ApiSite }) {
   return (
-    <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
-      {(site.name || site.url || '?').slice(0, 1).toUpperCase()}
-    </div>
+    <LetterAvatar seed={site.name || site.url || '?'} label={buildAvatarLabel(site.name || site.url || '?')} />
   )
 }
 

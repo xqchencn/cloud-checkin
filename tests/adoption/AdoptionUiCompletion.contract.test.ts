@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appSource, siteDetailTokenListSource as tokenListSource } from '../sources'
+import { appSource, siteBatchActionsSource, siteCardsSource, siteDetailTokenListSource as tokenListSource, siteManagerSource } from '../sources'
 
 /**
  * 采用前端完成度合约测试
@@ -40,12 +40,31 @@ describe('adoption frontend completion contracts', () => {
 
   it('renders only current site-management tabs and direct batch execution', () => {
     expect(appSource).toContain("useState<'overview' | 'tokens' | 'models' | 'checkin' | 'tasks'>")
-    expect(appSource).toContain("useState<'checkin' | 'task'>")
+    expect(appSource).toContain("type LogTab = 'checkin' | 'task' | 'hf'")
+    expect(appSource).toContain('HF 保活日志')
     expect(appSource).toContain('runDirectBatch')
     expect(appSource).toContain('summarizeBatchOperation')
-    expect(appSource).toContain('ApiSiteBatchRefreshBalance(targets.map(site => site.id))')
-    expect(appSource).toContain('ApiSiteBatchCheckin(targets.map(site => site.id))')
-    expect(appSource).toContain('ApiSiteBatchSyncTokens(targets.map(site => site.id))')
+    expect(siteBatchActionsSource).toContain('ApiSiteRefreshBalance(site.id)')
+    expect(siteBatchActionsSource).toContain('ApiSiteCheckin(site.id)')
+    expect(siteBatchActionsSource).toContain('ApiSiteSyncTokens(site.id)')
+    expect(siteBatchActionsSource).not.toContain('ApiSiteBatchRefreshBalance(targets.map(site => site.id))')
+    expect(siteBatchActionsSource).not.toContain('ApiSiteBatchCheckin(targets.map(site => site.id))')
+    expect(siteBatchActionsSource).not.toContain('ApiSiteBatchSyncTokens(targets.map(site => site.id))')
+  })
+
+  it('keeps direct batch actions visible with a real progress panel', () => {
+    expect(siteManagerSource).toContain('const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null)')
+    expect(siteManagerSource).toContain('useSiteBatchActions({ sites, load, setBusyKey, setError, setBatchProgress })')
+    expect(siteManagerSource).toContain('{batchProgress ? <BatchProgressPanel progress={batchProgress} /> : null}')
+    expect(siteBatchActionsSource).toContain('setBatchProgress: Dispatch<SetStateAction<BatchProgress | null>>')
+    expect(siteBatchActionsSource).toContain('async function runProgressItems')
+    expect(siteBatchActionsSource).toContain("phase: '正在执行'")
+    expect(siteBatchActionsSource).toContain('current: startCurrent + index + 1')
+    expect(siteBatchActionsSource).not.toContain('function updateProgressFromResult')
+    expect(siteCardsSource).toContain('role="progressbar"')
+    expect(siteCardsSource).toContain('aria-valuenow={percent}')
+    expect(siteCardsSource).not.toContain('bg-slate-950')
+    expect(siteCardsSource).not.toContain('bg-black')
   })
 
   it('does not expose features that belong to proxy-router management', () => {

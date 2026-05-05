@@ -1,5 +1,5 @@
 import { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { CheckCircle2, CircleCheck, Database, Download, KeyRound, LogOut, RefreshCcw, Upload } from 'lucide-react'
+import { CheckCircle2, CircleCheck, Database, Download, KeyRound, Loader2, LogOut, RefreshCcw, Upload } from 'lucide-react'
 import { SITE_FILTERS } from '../../shared/constants'
 import type { ConfirmAction, SiteFilter } from '../../shared/types'
 
@@ -58,6 +58,7 @@ export function SiteActionMenu({ open, busyKey, onBatchAll, onBatchBalance, onBa
   onLogout: () => void
 }) {
   if (!open) return null
+  const importing = busyKey === 'import'
   const actionClass = 'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-brand'
 
   /**
@@ -65,6 +66,7 @@ export function SiteActionMenu({ open, busyKey, onBatchAll, onBatchBalance, onBa
    * @param event - 键盘事件
    */
   function handleImportKeyDown(event: ReactKeyboardEvent<HTMLLabelElement>) {
+    if (importing) return
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
     event.currentTarget.querySelector<HTMLInputElement>('input[type="file"]')?.click()
@@ -131,13 +133,15 @@ export function SiteActionMenu({ open, busyKey, onBatchAll, onBatchBalance, onBa
       <button type="button" className={actionClass} onClick={onExport} disabled={busyKey === 'export'}>
         <Download size={16} />导出
       </button>
-      <label className={`${actionClass} cursor-pointer`} role="button" tabIndex={0} onKeyDown={handleImportKeyDown}>
-        <Upload size={16} />导入
+      <label className={`${actionClass} ${importing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`} role="button" tabIndex={0} aria-disabled={importing} onKeyDown={handleImportKeyDown}>
+        {importing ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+        {importing ? '导入中...' : '导入'}
         <input className="hidden" type="file" accept=".json,application/json" onChange={event => {
+          if (importing) return
           const file = event.target.files?.[0]
           if (file) onImport(file)
           event.currentTarget.value = ''
-        }} />
+        }} disabled={importing} />
       </label>
       <button type="button" className={`${actionClass} text-red-600 hover:bg-red-50 hover:text-red-700`} onClick={onLogout}>
         <LogOut size={16} />退出

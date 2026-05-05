@@ -9,14 +9,6 @@ import { formatDate, formatMoney, normalizeRemoteGroupOptions, siteCredentialDet
 import { SimpleTable } from '../../shared/SimpleTable'
 import { ButtonIcon, DetailGrid, SiteAvatar, ToneBadge } from '../../shared/ui'
 
-/**
- * 站点详情抽屉组件
- * @param site - 站点对象
- * @param open - 是否打开
- * @param busyKey - 忙碌键
- * @param onClose - 关闭回调
- * @param onAction - 操作回调
- */
 export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
   site: ApiSite | null
   open: boolean
@@ -36,10 +28,6 @@ export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
   const [remoteGroupError, setRemoteGroupError] = useState('')
   const remoteGroupRequestId = useRef(0)
 
-  /**
-   * 加载远程分组
-   * @param siteId - 站点 ID
-   */
   const loadRemoteGroupsForSite = useCallback(async (siteId: number) => {
     const requestId = remoteGroupRequestId.current + 1
     remoteGroupRequestId.current = requestId
@@ -59,9 +47,6 @@ export function SiteDetailDrawer({ site, open, busyKey, onClose, onAction }: {
     }
   }, [])
 
-  /**
-   * 加载标签页数据
-   */
   const loadTab = useCallback(async () => {
     if (!site) return
     setLoading(true)

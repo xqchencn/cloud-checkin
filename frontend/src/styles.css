@@ -65,7 +65,7 @@ textarea {
   }
 
   .badge {
-    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium;
   }
 
   .soft-card {
@@ -135,7 +135,7 @@ textarea {
   }
 
   .modal-shell {
-    @apply fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/35 px-4 py-6 backdrop-blur-sm md:py-8;
+    @apply fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/35 px-4 py-6 backdrop-blur-sm md:py-8;
   }
 
   .modal-panel {
